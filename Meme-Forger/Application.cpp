@@ -26,6 +26,7 @@ static COLORREF Runtime_customColors[16];						// Custom colors used for color d
 static COLORREF Runtime_rgbCurrent = RGB(0xFF, 0xFF, 0xFF);		// Current meme text color RGB value.
 
 static bool Runtime_ColorModeHexEnabled = false;				// If hexadecimal color mode is enabled in SETTINGS.
+
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
 static HWND w_MemeArea = nullptr;
