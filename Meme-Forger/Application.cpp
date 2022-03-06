@@ -12,6 +12,7 @@ bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect);
 COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst);
 template <typename T> std::wstring ConvertToString(T val_to_str);
 template <typename T> T ConvertToInt(const wchar_t* val_to_int);
+template <typename T> std::wstring ConvertToHex(T val_to_hex);
 
 // ============ Runtime Control Variables ===========
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
@@ -24,6 +25,7 @@ static std::size_t Runtime_CurrentTextsAdded = 0ull;			// Count how many texts h
 static COLORREF Runtime_customColors[16];						// Custom colors used for color dialog for meme text
 static COLORREF Runtime_rgbCurrent = RGB(0xFF, 0xFF, 0xFF);		// Current meme text color RGB value.
 
+static bool Runtime_ColorModeHexEnabled = false;				// If hexadecimal color mode is enabled in SETTINGS.
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
 static HWND w_MemeArea = nullptr;
@@ -816,7 +818,22 @@ LRESULT __stdcall Application::WndProc_TabControl(
 
 					std::wstring str_pos = L"(" + str_pos_x + L"," + str_pos_y + L")";
 					std::wstring str_color;
-					str_color = L"RGB(" + color_r + L"," + color_g + L"," + color_b + L")";
+
+					if (::Runtime_ColorModeHexEnabled)
+					{
+						int rgb_r = ConvertToInt<int>(color_r.c_str());
+						int rgb_g = ConvertToInt<int>(color_g.c_str());
+						int rgb_b = ConvertToInt<int>(color_b.c_str());
+
+						std::wstring color_r_hex = ConvertToHex<int>(rgb_r);
+						std::wstring color_g_hex = ConvertToHex<int>(rgb_g);
+						std::wstring color_b_hex = ConvertToHex<int>(rgb_b);
+
+						str_color = L"#" + color_r_hex + color_g_hex + color_b_hex;
+						std::transform(str_color.begin(), str_color.end(), str_color.begin(), ::toupper);
+					}
+					else
+						str_color = L"RGB(" + color_r + L"," + color_g + L"," + color_b + L")";
 
 					std::vector<const wchar_t*> Items;
 					++::Runtime_CurrentTextsAdded;
@@ -916,9 +933,9 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 			if(control_id == IDC_STATIC_COLOR_INSPECT)
 			{
 				HDC hdc = reinterpret_cast<HDC>(wParam);
-				SetTextColor(hdc, RGB(0x01, 0x01, 0x01));
+				SetTextColor(hdc, ::Runtime_rgbCurrent);
 				SetBkColor(hdc, ::Runtime_rgbCurrent);
-				return (LRESULT)hbrcurrent;
+				return (LRESULT)CreateSolidBrush(::Runtime_rgbCurrent);
 			}
 			break;
 		}
@@ -1048,4 +1065,20 @@ T ConvertToInt(const wchar_t* val_to_int)
 	wss << val_to_int;
 	wss >> int_res;
 	return int_res;
+}
+
+template<typename T>
+std::wstring ConvertToHex(T val_to_hex)
+{
+	std::wstring res;
+	std::wstringstream wss;
+	wss << std::hex << val_to_hex;
+	res = wss.str();
+	if (val_to_hex < 16)
+	{
+		std::wstring res_t(res);
+		res = L"0";
+		res.append(res_t);
+	}
+	return res;
 }

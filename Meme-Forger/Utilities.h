@@ -19,6 +19,7 @@
 #include <fstream>
 #include <windowsx.h>
 #include <gdiplus.h>
+#include <algorithm>
 
 #ifdef _MSC_VER
 	#pragma comment(lib, "GDIPlus.lib")
