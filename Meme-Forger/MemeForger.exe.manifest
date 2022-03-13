@@ -6,7 +6,7 @@
     name="CompanyName.ProductName.YourApplication"
     type="win32"
 />
-<description>Your application description here.</description>
+<description>Meme Forger - Simple meme creating app.</description>
 <dependency>
     <dependentAssembly>
         <assemblyIdentity
