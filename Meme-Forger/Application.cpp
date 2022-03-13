@@ -13,6 +13,8 @@ COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst);
 template <typename T> std::wstring ConvertToString(T val_to_str);
 template <typename T> T ConvertToInt(const wchar_t* val_to_int);
 template <typename T> std::wstring ConvertToHex(T val_to_hex);
+void ToggleMenuBarVisibility(HWND);
+void ManageMultipleSyncKeys(MSG&);
 
 // ============ Runtime Control Variables ===========
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
@@ -26,6 +28,11 @@ static COLORREF Runtime_customColors[16];						// Custom colors used for color d
 static COLORREF Runtime_rgbCurrent = RGB(0xFF, 0xFF, 0xFF);		// Current meme text color RGB value.
 
 static bool Runtime_ColorModeHexEnabled = false;				// If hexadecimal color mode is enabled in SETTINGS.
+
+static bool bRuntime_ShowStatusBar = true;
+static bool bRuntime_ShowMenuBar = true;
+
+static HMENU Runtime_hMenu = nullptr;
 
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
@@ -134,15 +141,18 @@ LRESULT __stdcall Application::Thunk(HWND w_Handle, UINT Msg, WPARAM wParam, LPA
 
 LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-	HBRUSH defhbr = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+	static HMENU hMenu = GetMenu(w_Handle);
 	static int coord_x = 0;
 	static int coord_y = 0;
+	HBRUSH defhbr = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
 
 	switch (Msg)
 	{
 		case WM_CREATE:
 		{
 			InitUI(w_Handle, Application::WClass::GetInstance());
+			::Runtime_hMenu = GetMenu(w_Handle);
+
 			SendMessageW(w_StatusBar, SB_SETTEXTW, 2u, reinterpret_cast<LPARAM>(L"No coord selected"));
 			SetWindowSubclass(w_GroupBoxPosition, &Application::GroupBoxPosProc, 0u, 0u);
 			SetWindowSubclass(w_TabControl, &Application::WndProc_TabControl, 0u, 0u);
@@ -159,6 +169,37 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				case IDC_BUTTON_ADD:
 				{
 					PostQuitMessage(0);
+					break;
+				}
+				case ID_HELP_ABOUT:
+				{
+					DialogBox(
+						Application::WClass::GetInstance(),
+						MAKEINTRESOURCE(IDD_ABOUT),
+						w_Handle,
+						reinterpret_cast<DLGPROC>(&Application::DlgProc_About)
+					);
+					break;
+				}
+				case ID_VIEW_STATUS_BAR:
+				{
+					if (bRuntime_ShowStatusBar)
+					{
+						ShowWindow(w_StatusBar, SW_HIDE);
+						bRuntime_ShowStatusBar = false;
+						CheckMenuItem(GetMenu(w_Handle), ID_VIEW_STATUS_BAR, (UINT)bRuntime_ShowStatusBar);
+					}
+					else
+					{
+						ShowWindow(w_StatusBar, SW_SHOWDEFAULT);
+						bRuntime_ShowStatusBar = true;
+						CheckMenuItem(GetMenu(w_Handle), ID_VIEW_STATUS_BAR, MF_CHECKED);
+					}
+					break;
+				}
+				case ID_VIEW_MENUBAR:
+				{
+					ToggleMenuBarVisibility(w_Handle);
 					break;
 				}
 			}
@@ -1022,6 +1063,34 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 	return 0;
 }
 
+LRESULT __stdcall Application::DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	HWND w_StaticBy = GetDlgItem(w_Dlg, IDC_STATIC_ABOUT_BY);
+	HWND w_StaticDesc = GetDlgItem(w_Dlg, IDC_STATIC_ABOUT_DESC);
+
+	switch (Msg)
+	{
+		case WM_INITDIALOG:
+		{
+			wchar_t* buffer = new wchar_t[255];
+			LoadString(GetModuleHandle(nullptr), IDS_STRING_ABOUT_BY, buffer, 255);
+			SetWindowText(w_StaticBy, buffer);
+			LoadString(GetModuleHandle(nullptr), IDS_STRING_ABOUT_DESC, buffer, 255);
+			SetWindowText(w_StaticDesc, buffer);
+			delete[] buffer;
+			break;
+		}
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK)
+				EndDialog(w_Dlg, IDOK);
+			break;
+		case WM_CLOSE:
+			EndDialog(w_Dlg, 0);
+			break;
+	}
+	return 0;
+}
+
 bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect)
 {
 	bool coord_x_valid = (x >= memeAreaRect.left && x <= memeAreaRect.right);
@@ -1049,12 +1118,51 @@ COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst)
 	return ::Runtime_rgbCurrent;
 }
 
+void ToggleMenuBarVisibility(HWND w_Handle)
+{
+	if (::bRuntime_ShowMenuBar)
+	{
+		SetMenu(w_Handle, nullptr);
+		::bRuntime_ShowMenuBar = false;
+		CheckMenuItem(GetMenu(w_Handle), ID_VIEW_STATUS_BAR, MF_UNCHECKED);
+	}
+	else
+	{
+		SetMenu(w_Handle, ::Runtime_hMenu);
+		::bRuntime_ShowMenuBar = true;
+		CheckMenuItem(GetMenu(w_Handle), ID_VIEW_STATUS_BAR, MF_CHECKED);
+		// Restore check state from static runtime variable.
+		CheckMenuItem(GetMenu(w_Handle), ID_VIEW_STATUS_BAR, ::bRuntime_ShowStatusBar ? MF_CHECKED : MF_UNCHECKED);
+	}
+	return;
+}
+
+void ManageMultipleSyncKeys(MSG& Msg)
+{
+	switch (Msg.message)
+	{
+		case WM_KEYDOWN:
+		{
+			switch (Msg.wParam)
+			{
+				case 'M':
+					if (GetAsyncKeyState(VK_CONTROL))
+						::ToggleMenuBarVisibility(Msg.hwnd);
+					break;
+			}
+			break;
+		}
+	}
+	return;
+}
+
 void Application::RunMessageLoop()
 {
 	MSG Msg = { };
 	while (GetMessage(&Msg, nullptr, 0, 0) > 0)
 	{
 		TranslateMessage(&Msg);
+		::ManageMultipleSyncKeys(Msg);
 		DispatchMessage(&Msg);
 	}
 	return;

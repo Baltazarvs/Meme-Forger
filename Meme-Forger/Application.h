@@ -41,6 +41,7 @@ public:
 	static LRESULT __stdcall WndProc_GroupStyle(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	
 	static LRESULT __stdcall DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
+	static LRESULT __stdcall DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 
 	void DrawMeme(HWND w_MemeHandle, HDC hdc);
 	void DrawMemeString(const wchar_t* lpwstrMemeString, Gdiplus::Graphics& rgfx);

@@ -80,8 +80,8 @@ BEGIN
     END
     POPUP "V&iew"
     BEGIN
-        MENUITEM "Status Bar",                  ID_VIEW_STATUS_BAR
-        MENUITEM "Menu Bar",                    ID_VIEW_MENUBAR
+        MENUITEM "Status Bar",                  ID_VIEW_STATUS_BAR, CHECKED
+        MENUITEM "Menu Bar",                    ID_VIEW_MENUBAR, CHECKED
     END
     POPUP "&Help"
     BEGIN
@@ -107,6 +107,16 @@ BEGIN
     LTEXT           "Actions...",31103,85,11,32,8
 END
 
+IDD_ABOUT DIALOGEX 0, 0, 173, 77
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,59,53,56,19
+    LTEXT           "",IDC_STATIC_ABOUT_BY,46,11,105,8
+    CTEXT           "",IDC_STATIC_ABOUT_DESC,11,24,152,25
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -117,6 +127,26 @@ IDD_DIALOG1 AFX_DIALOG_LAYOUT
 BEGIN
     0
 END
+
+IDD_ABOUT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUT, DIALOG
+    BEGIN
+    END
+END
+#endif    // APSTUDIO_INVOKED
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -129,6 +159,8 @@ BEGIN
     IDS_STRING_TAB_TEXT     "Text"
     IDS_STRING_TAB_IMAGE    "Image"
     IDS_STRING_TAB_FILE     "File"
+    IDS_STRING_ABOUT_BY     "Created 2022 - Baltazarus"
+    IDS_STRING_ABOUT_DESC   "Meme-Forger is a simple meme creating app.\nIt provides editing environment for importing \nand texting memes."
 END
 
 #endif    // English (United States) resources
