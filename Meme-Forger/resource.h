@@ -42,6 +42,8 @@
 #define IDD_ACTION                      40001
 #define IDC_STATIC_ABOUT_BY             50001
 #define IDC_STATIC_ABOUT_DESC           50002
+#define IDC_EDIT_MEME_LOADED_FNAME		60001
+#define IDC_BUTTON_MEME_BROWSE			60002
 
 // Next default values for new objects
 // 

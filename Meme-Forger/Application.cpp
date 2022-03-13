@@ -57,6 +57,9 @@ static HWND w_EditB = nullptr;
 static HWND w_ButtonSelectColor = nullptr;
 static HWND w_StaticColorInspector = nullptr;
 static HWND w_ButtonActions = nullptr;
+
+static HWND w_EditLoadedMeme = nullptr;
+static HWND w_ButtonBrowse = nullptr;
 // ==================================================
 
 Application::WClass::WClass()
@@ -331,6 +334,19 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				blueRect.right * 3 + 4 + ((inspectRect.right - inspectRect.left) + 4), 
 				35,
 				TRUE
+			);
+
+
+			MoveWindow(
+				w_EditLoadedMeme, 
+				memeRect.left, memeRect.bottom - memeRect.top + 10, 
+				memeRect.right - memeRect.left - 100, 30, TRUE
+			);
+
+			MoveWindow(
+				w_ButtonBrowse, 
+				memeRect.left + (memeRect.right - memeRect.left - 100) + 2, memeRect.bottom - memeRect.top + 10 - 1, 
+				100, 32, TRUE
 			);
 			return 0;
 		}
@@ -623,11 +639,25 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_TabControl, ID(IDC_BUTTON_ACTIONS), w_Inst, nullptr
 	);
 
-	const int controls_num = 13;
+	w_EditLoadedMeme = CreateWindowA(
+		WC_EDITA, nullptr,
+		WS_VISIBLE | WS_CHILD | WS_BORDER,
+		0, 0, 0, 0,
+		w_Handle, ID(IDC_EDIT_MEME_LOADED_FNAME), w_Inst, nullptr
+	);
+
+	w_ButtonBrowse = CreateWindowA(
+		WC_BUTTONA, "Browse",
+		WS_VISIBLE | WS_CHILD,
+		0, 0, 0, 0,
+		w_Handle, ID(IDC_BUTTON_MEME_BROWSE), w_Inst, nullptr
+	);
+
+	const int controls_num = 15;
 	HWND controlsList[controls_num] = { 
 		w_MemeArea, w_TabControl, w_StatusBar, w_StringsTreeList, w_EditTextValue,
 		w_StaticPosX, w_StaticPosY, w_EditPosX, w_EditPosY, w_EditR, w_EditG, w_EditB,
-		w_StaticColorInspector
+		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse
 	};
 
 	for(int i = 0; i < controls_num; ++i)
@@ -636,7 +666,8 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		{
 			HFONT hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
 			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
-			continue;
+			if(i != 14)
+				continue;
 		}
 		SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>((HFONT)GetStockObject(DEFAULT_GUI_FONT)), true);
 	}
