@@ -47,10 +47,20 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Dialog
+// Icon
 //
 
-IDI_ICON_ADD ICON "source\\media\\icons\\Icon_Add.ico"
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON_SELECT_POS     ICON                    "source\\media\\icons\\select_pos.ico"
+
+IDI_ICON_ADD            ICON                    "source\\media\\icons\\Icon_Add.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
 
 IDR_MENUBAR MENU
 BEGIN
@@ -81,6 +91,12 @@ BEGIN
     END
 END
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
 IDD_ACTION DIALOG 0, 0, 0, 0
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_BORDER
 FONT 8, "MS Shell Dlg"
@@ -91,32 +107,6 @@ BEGIN
     LTEXT           "Actions...",31103,85,11,32,8
 END
 
-STRINGTABLE
-BEGIN
-    IDS_STRING_TAB_TEXT     "Text"
-    IDS_STRING_TAB_IMAGE    "Image"
-    IDS_STRING_TAB_FILE     "File"
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// DESIGNINFO
-//
-
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_DIALOG1, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 302
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 169
-    END
-END
-#endif    // APSTUDIO_INVOKED
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -126,6 +116,19 @@ END
 IDD_DIALOG1 AFX_DIALOG_LAYOUT
 BEGIN
     0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_STRING_TAB_TEXT     "Text"
+    IDS_STRING_TAB_IMAGE    "Image"
+    IDS_STRING_TAB_FILE     "File"
 END
 
 #endif    // English (United States) resources

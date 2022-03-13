@@ -311,6 +311,17 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 				if(::bRuntime_EnableCoordinateSelection)
 				{
+					HCURSOR hCursor = reinterpret_cast<HCURSOR>(
+						LoadImage(
+							GetModuleHandle(nullptr), 
+							MAKEINTRESOURCE(IDI_ICON_SELECT_POS),
+							IMAGE_ICON,
+							32, 32,
+							LR_VGACOLOR
+						)
+					);
+					SetCursor(hCursor);
+					
 					static std::wostringstream oss;
 					oss << coord_x;
 					SendMessageW(w_EditPosX, WM_SETTEXT, 0u, reinterpret_cast<LPARAM>(oss.str().c_str()));
@@ -324,6 +335,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			{
 				if(bRuntime_CursorIsOverMemeArea)
 				{
+					SetCursor(LoadCursor(WClass::GetInstance(), IDC_ARROW));
 					SendMessageA(w_StatusBar, SB_SETTEXTA, 2u, reinterpret_cast<LPARAM>("No coord selected."));
 					bRuntime_CursorIsOverMemeArea = false;
 				}
@@ -1040,10 +1052,10 @@ COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst)
 void Application::RunMessageLoop()
 {
 	MSG Msg = { };
-	while (GetMessageA(&Msg, nullptr, 0, 0) > 0)
+	while (GetMessage(&Msg, nullptr, 0, 0) > 0)
 	{
 		TranslateMessage(&Msg);
-		DispatchMessageA(&Msg);
+		DispatchMessage(&Msg);
 	}
 	return;
 }

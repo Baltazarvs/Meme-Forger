@@ -6,6 +6,7 @@
 #define IDS_STRING_TAB_IMAGE            102
 #define IDD_DIALOG1                     102
 #define IDS_STRING_TAB_FILE             103
+#define IDI_ICON_SELECT_POS             114
 #define IDR_MENUBAR                     21000
 #define ID_FILE_OPEN                    21001
 #define ID_FILE_SAVE                    21002
@@ -42,7 +43,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        104
+#define _APS_NEXT_RESOURCE_VALUE        115
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1000
 #define _APS_NEXT_SYMED_VALUE           101
