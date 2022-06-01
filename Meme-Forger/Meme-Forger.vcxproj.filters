@@ -40,30 +40,8 @@
     <Manifest Include="MemeForger.exe.manifest" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="source\media\icons\Icon_Add.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="source\media\icons\icon1.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="source\media\icons\select_pos.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="source\media\icons\select_pos.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="Meme-Forger.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="source\media\cursors\select_pos.cur">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="source\media\icons\cursor1.cur">
-      <Filter>Resource Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

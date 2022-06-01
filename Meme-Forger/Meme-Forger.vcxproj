@@ -153,17 +153,7 @@
     <Manifest Include="MemeForger.exe.manifest" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="source\media\icons\icon1.ico" />
-    <Image Include="source\media\icons\Icon_Add.ico" />
-    <Image Include="source\media\icons\select_pos.ico" />
-    <Image Include="source\media\icons\select_pos.png" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="Meme-Forger.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="source\media\cursors\select_pos.cur" />
-    <None Include="source\media\icons\cursor1.cur" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

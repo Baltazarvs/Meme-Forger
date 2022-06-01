@@ -31,7 +31,7 @@
 	#pragma warning(disable: 4996)
 #endif
 
-#define LP_CLASS_NAME		"Baltazarus - Meme Forger"
+#define LP_CLASS_NAME		L"Baltazarus - Meme Forger"
 
 #define I_ERROR_CANNOT_PROCESS_MESSAGE			-0x01
 #define I_ERROR_CANNOT_REGISTER_WCLASS			-0x02

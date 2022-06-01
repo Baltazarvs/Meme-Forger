@@ -6,6 +6,9 @@
 Application::WClass Application::WClass::WCInstance;
 Gdiplus::Graphics* Application::m_Gfx;
 
+struct MemeText;
+
+std::wstring OpenFileWithDialog(const wchar_t* Filters, HWND w_Handle, int criteria);
 bool LV_InsertColumns(HWND w_lvHandle, std::vector<const wchar_t*> Columns);
 bool LV_InsertItems(HWND w_lvHandle, int iItem, std::vector<const wchar_t*> Items);
 bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect);
@@ -17,6 +20,7 @@ void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
 
 // ============ Runtime Control Variables ===========
+static wchar_t Runtime_CurrentMemePath[MAX_PATH] = L"45e.jpg";
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
 static int Runtime_MemeFormatHeight = 512;						// Format size for height
 static std::size_t Runtime_CurrentImageSize = 0ull;				// Current image size in bytes.
@@ -33,6 +37,8 @@ static bool bRuntime_ShowStatusBar = true;
 static bool bRuntime_ShowMenuBar = true;
 
 static HMENU Runtime_hMenu = nullptr;
+
+std::vector<MemeText> Runtime_MemeTexts;
 
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
@@ -62,9 +68,17 @@ static HWND w_EditLoadedMeme = nullptr;
 static HWND w_ButtonBrowse = nullptr;
 // ==================================================
 
+struct MemeText
+{
+	Gdiplus::Rect text_rect;
+	COLORREF text_color;
+	HFONT font;
+	std::wstring text;
+};
+
 Application::WClass::WClass()
 {
-	WNDCLASSEXA wcex = { 0 };
+	WNDCLASSEXW wcex = { 0 };
 
 	memset(&wcex, 0, sizeof(wcex));
 	wcex.cbSize = sizeof(wcex);
@@ -73,20 +87,20 @@ Application::WClass::WClass()
 	wcex.cbWndExtra = 0;
 	wcex.lpfnWndProc = &Application::WndProcSetup;
 	wcex.hInstance = Application::WClass::GetInstance();
-	wcex.hCursor = LoadCursor(Application::WClass::GetInstance(), IDC_ARROW);
-	wcex.hIcon = LoadIcon(Application::WClass::GetInstance(), IDI_APPLICATION);
+	wcex.hCursor = LoadCursorW(Application::WClass::GetInstance(), IDC_ARROW);
+	wcex.hIcon = LoadIconW(Application::WClass::GetInstance(), IDI_APPLICATION);
 	wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
 	wcex.lpszClassName = Application::WClass::GetWClassName();
-	wcex.lpszMenuName = MAKEINTRESOURCEA(IDR_MENUBAR);
-	wcex.hIconSm = LoadIcon(this->GetInstance(), IDI_APPLICATION);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDR_MENUBAR);
+	wcex.hIconSm = LoadIconW(this->GetInstance(), IDI_APPLICATION);
 
-	if (!RegisterClassExA(&wcex))
-		MessageBoxA(0, "Cannot Register Window Class!", "Error!", MB_OK | MB_ICONEXCLAMATION);
+	if (!RegisterClassExW(&wcex))
+		MessageBoxW(0, L"Cannot Register Window Class!", L"Error!", MB_OK | MB_ICONEXCLAMATION);
 }
 
 Application::WClass::~WClass()
 {
-	UnregisterClassA(this->GetWClassName(), this->GetInstance());
+	UnregisterClassW(this->GetWClassName(), this->GetInstance());
 }
 
 HINSTANCE Application::WClass::GetInstance() noexcept
@@ -94,15 +108,15 @@ HINSTANCE Application::WClass::GetInstance() noexcept
 	return WCInstance.w_Inst;
 }
 
-const char* Application::WClass::GetWClassName() noexcept
+const wchar_t* Application::WClass::GetWClassName() noexcept
 {
 	return WCInstance.WClassName;
 }
 
-Application::Application(HWND w_Parent, const char* Caption, WTransform w_Transform)
+Application::Application(HWND w_Parent, const wchar_t* Caption, WTransform w_Transform)
  : w_Transform(w_Transform)
 {
-	w_Handle = CreateWindowExA(
+	w_Handle = CreateWindowExW(
 		WS_EX_CLIENTEDGE,
 		Application::WClass::GetWClassName(),
 		Caption,
@@ -114,7 +128,7 @@ Application::Application(HWND w_Parent, const char* Caption, WTransform w_Transf
 	ShowWindow(this->GetHandle(), SW_SHOWMAXIMIZED);
 }
 
-Application::Application(HWND w_Parent, const char* Caption, int X, int Y, int Width, int Height)
+Application::Application(HWND w_Parent, const wchar_t* Caption, int X, int Y, int Width, int Height)
 	: Application(w_Parent, Caption, { X, Y, Width, Height })
 { }
 
@@ -129,16 +143,16 @@ LRESULT __stdcall Application::WndProcSetup(HWND w_Handle, UINT Msg, WPARAM wPar
 	{
 		const CREATESTRUCTA* const w_Create = reinterpret_cast<CREATESTRUCTA*>(lParam);
 		Application* const w_App = reinterpret_cast<Application*>(w_Create->lpCreateParams);
-		SetWindowLongPtrA(w_Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(w_App));
-		SetWindowLongPtrA(w_Handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&Application::Thunk));
+		SetWindowLongPtrW(w_Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(w_App));
+		SetWindowLongPtrW(w_Handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&Application::Thunk));
 		return w_App->WndProc(w_Handle, Msg, wParam, lParam);
 	}
-	return DefWindowProcA(w_Handle, Msg, wParam, lParam);
+	return DefWindowProcW(w_Handle, Msg, wParam, lParam);
 }
 
 LRESULT __stdcall Application::Thunk(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-	Application* const w_App = reinterpret_cast<Application*>(GetWindowLongPtrA(w_Handle, GWLP_WNDPROC));
+	Application* const w_App = reinterpret_cast<Application*>(GetWindowLongPtrW(w_Handle, GWLP_WNDPROC));
 	return w_App->WndProc(w_Handle, Msg, wParam, lParam);
 }
 
@@ -160,6 +174,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			SetWindowSubclass(w_GroupBoxPosition, &Application::GroupBoxPosProc, 0u, 0u);
 			SetWindowSubclass(w_TabControl, &Application::WndProc_TabControl, 0u, 0u);
 			SetWindowSubclass(w_GroupBoxStyle, &Application::WndProc_GroupStyle, 0u, 0u);
+			SetWindowSubclass(w_MemeArea, &Application::WndProc_MemeArea, 0u, 0u);
 			break;
 		}
 		case WM_COMMAND:
@@ -203,6 +218,27 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				case ID_VIEW_MENUBAR:
 				{
 					ToggleMenuBarVisibility(w_Handle);
+					break;
+				}
+
+				case IDC_BUTTON_MEME_BROWSE:
+				{
+					std::wstring path = OpenFileWithDialog(
+						L"JPG Image\0*.jpg\0"
+						L"PNG Image\0*.png\0"
+						L"Bitmap Image\0*.bmp\0",
+						w_Handle,
+						0
+					);
+
+					wcscpy(Runtime_CurrentMemePath, path.c_str());
+					SetWindowTextW(w_EditLoadedMeme, path.c_str());
+					SendMessageW(w_StatusBar, SB_SETTEXTW, 0u, reinterpret_cast<LPARAM>(path.c_str()));
+
+					RECT memeRect;
+					GetClientRect(w_MemeArea, &memeRect);
+					InvalidateRect(w_MemeArea, &memeRect, TRUE);
+					UpdateWindow(w_MemeArea);
 					break;
 				}
 			}
@@ -399,22 +435,13 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			break;
 		}
-		/*
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(w_Handle, &ps);
-			this->DrawMeme(w_MemeArea, hdc);
-            FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
-            EndPaint(w_Handle, &ps);
-
-			PAINTSTRUCT psa;
-            hdc = BeginPaint(w_MemeArea, &psa);
-			this->DrawMeme(w_MemeArea, hdc);
-            EndPaint(w_Handle, &psa);
+			HDC hdc = BeginPaint(w_Handle, &ps);
+			EndPaint(w_Handle, &ps);
 			break;
 		}
-		*/
 		case WM_LBUTTONDOWN:
 		{
 			if(::bRuntime_EnableCoordinateSelection)
@@ -445,7 +472,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			PostQuitMessage(0);
 			break;
 		default:
-			return DefWindowProcA(w_Handle, Msg, wParam, lParam);
+			return DefWindowProcW(w_Handle, Msg, wParam, lParam);
 	}
 	return 0;
 }
@@ -474,8 +501,8 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 {
 	DWORD defStyles = (WS_VISIBLE | WS_CHILD);
 
-	w_MemeArea = CreateWindowA(
-		WC_STATICA, nullptr,
+	w_MemeArea = CreateWindowW(
+		WC_STATICW, nullptr,
 		defStyles | WS_BORDER,
 		0, 0, 512, 512,
 		w_Handle, ID(IDC_MEME_AREA), w_Inst, nullptr
@@ -501,153 +528,153 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	Application::SetupStatusBar(w_Handle, w_Inst);
 
 	DWORD lvexsty = (LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
-	w_StringsTreeList = CreateWindowExA(
-		lvexsty, WC_LISTVIEWA, nullptr,
+	w_StringsTreeList = CreateWindowExW(
+		lvexsty, WC_LISTVIEWW, nullptr,
 		defStyles | WS_BORDER | LVS_REPORT | LVS_EDITLABELS,
 		15, 35, 300, 300,
 		w_TabControl, ID(IDC_LIST_TEXT_TREE), w_Inst, nullptr
 	);
 
-	SendMessageA(w_StringsTreeList, LVM_SETEXTENDEDLISTVIEWSTYLE, lvexsty, lvexsty);
+	SendMessageW(w_StringsTreeList, LVM_SETEXTENDEDLISTVIEWSTYLE, lvexsty, lvexsty);
 
 	std::vector<const wchar_t*> Columns { L"#", L"Text", L"Position", L"Action" };
 	if(!LV_InsertColumns(w_StringsTreeList, Columns))
 	{
-		MessageBoxA(w_Handle, "Cannot initialize required control.", "Error", MB_OK | MB_ICONERROR);
+		MessageBoxW(w_Handle, L"Cannot initialize required control.", L"Error", MB_OK | MB_ICONERROR);
 		PostQuitMessage(-1101);
 	}
-	SetWindowLongPtrA(w_StringsTreeList, GWLP_USERDATA, static_cast<LONG_PTR>(Columns.size()));
+	SetWindowLongPtrW(w_StringsTreeList, GWLP_USERDATA, static_cast<LONG_PTR>(Columns.size()));
 
-	w_EditTextValue = CreateWindowA(
-		WC_EDITA, nullptr,
+	w_EditTextValue = CreateWindowW(
+		WC_EDITW, nullptr,
 		defStyles | WS_BORDER | ES_CENTER,
 		0, 0, 0, 0,
 		w_TabControl, ID(IDC_EDIT_MEME_TEXT), w_Inst, nullptr
 	);
 
-	SendMessage(w_EditTextValue, 0x1500 + 1, FALSE, reinterpret_cast<LPARAM>(L"Enter Text..."));
+	SendMessageW(w_EditTextValue, 0x1500 + 1, FALSE, reinterpret_cast<LPARAM>(L"Enter Text..."));
 
-	HICON hAddIcon = (HICON)LoadImage(
+	HICON hAddIcon = (HICON)LoadImageW(
 		GetModuleHandle(nullptr), 
 		MAKEINTRESOURCE(IDI_ICON_ADD),
 		IMAGE_ICON,
 		16, 16, LR_DEFAULTCOLOR
 	);
 
-	w_ButtonAdd = CreateWindowA(
-		WC_BUTTONA, " Add",
+	w_ButtonAdd = CreateWindowW(
+		WC_BUTTONW, L" Add",
 		defStyles | BS_PUSHBUTTON,
 		0, 0, 0, 0,
 		w_TabControl, ID(IDC_BUTTON_ADD), w_Inst, nullptr
 	);
 	
-	SendMessage(
+	SendMessageW(
 		w_ButtonAdd, BM_SETIMAGE, 
 		static_cast<WPARAM>(IMAGE_ICON), 
 		reinterpret_cast<LPARAM>(hAddIcon)
 	);
 
-	w_GroupBoxPosition = CreateWindowA(
-		WC_BUTTONA, "Text Position",
+	w_GroupBoxPosition = CreateWindowW(
+		WC_BUTTONW, L"Text Position",
 		defStyles | BS_GROUPBOX,
 		0, 0, 0, 0,
 		w_TabControl, ID(IDC_BUTTON_GROUP_POSITION), w_Inst, nullptr
 	);
 
-	w_StaticPosX = CreateWindowA(
-		WC_STATICA, "X: ",
+	w_StaticPosX = CreateWindowW(
+		WC_STATICW, L"X: ",
 		defStyles,
 		0, 0, 0, 0,
 		w_GroupBoxPosition, nullptr, w_Inst, nullptr
 	);
 
-	w_StaticPosY = CreateWindowA(
-		WC_STATICA, "Y: ",
+	w_StaticPosY = CreateWindowW(
+		WC_STATICW, L"Y: ",
 		defStyles,
 		0, 0, 0, 0,
 		w_GroupBoxPosition, nullptr, w_Inst, nullptr
 	);
 
-	w_EditPosX = CreateWindowA(
-		WC_EDITA, "0",
+	w_EditPosX = CreateWindowW(
+		WC_EDITW, L"0",
 		defStyles | WS_BORDER | ES_NUMBER,
 		0, 0, 0, 0,
 		w_GroupBoxPosition, nullptr, w_Inst, nullptr
 	);
 
-	w_EditPosY = CreateWindowA(
-		WC_EDITA, "0",
+	w_EditPosY = CreateWindowW(
+		WC_EDITW, L"0",
 		defStyles | WS_BORDER | ES_NUMBER,
 		0, 0, 0, 0,
 		w_GroupBoxPosition, nullptr, w_Inst, nullptr
 	);
 
 
-	w_ButtonToggleClickPositioning = CreateWindowA(
-		WC_BUTTONA, "Select position by click",
+	w_ButtonToggleClickPositioning = CreateWindowW(
+		WC_BUTTONW, L"Select position by click",
 		defStyles | BS_AUTOCHECKBOX  | BS_PUSHLIKE,
 		0, 0, 0, 0,
 		w_GroupBoxPosition, ID(IDC_TOGGLE_BUTTON_SELECTION), w_Inst, nullptr
 	);
 
-	w_GroupBoxStyle = CreateWindowA(
-		WC_BUTTONA, "Style",
+	w_GroupBoxStyle = CreateWindowW(
+		WC_BUTTONW, L"Style",
 		defStyles | BS_GROUPBOX,
 		0, 0, 0, 0,
 		w_TabControl, ID(IDC_BUTTON_GROUP_STYLE), w_Inst, nullptr
 	);
 
-	w_EditR = CreateWindowA(
-		WC_EDITA, "255",
+	w_EditR = CreateWindowW(
+		WC_EDITW, L"255",
 		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_EDIT_R_COLOR), w_Inst, nullptr
 	);
 
-	w_EditG = CreateWindowA(
-		WC_EDITA, "255",
+	w_EditG = CreateWindowW(
+		WC_EDITW, L"255",
 		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_EDIT_G_COLOR), w_Inst, nullptr
 	);
 
-	w_EditB = CreateWindowA(
-		WC_EDITA, "255",
+	w_EditB = CreateWindowW(
+		WC_EDITW, L"255",
 		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_EDIT_B_COLOR), w_Inst, nullptr
 	);
 	
-	w_ButtonSelectColor = CreateWindowA(
-		WC_BUTTONA, "Select Color",
+	w_ButtonSelectColor = CreateWindowW(
+		WC_BUTTONW, L"Select Color",
 		defStyles | BS_PUSHBUTTON,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_BUTTON_SELECT_COLOR), w_Inst, nullptr
 	);
 
-	w_StaticColorInspector = CreateWindowA(
-		WC_STATICA, "Color Review",
+	w_StaticColorInspector = CreateWindowW(
+		WC_STATICW, L"Color Review",
 		defStyles | WS_BORDER,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_STATIC_COLOR_INSPECT), w_Inst, nullptr
 	);
 
-	w_ButtonActions = CreateWindowA(
-		WC_BUTTONA, "Actions",
+	w_ButtonActions = CreateWindowW(
+		WC_BUTTONW, L"Actions",
 		defStyles | BS_PUSHBUTTON,
 		0, 0, 0, 0,
 		w_TabControl, ID(IDC_BUTTON_ACTIONS), w_Inst, nullptr
 	);
 
-	w_EditLoadedMeme = CreateWindowA(
-		WC_EDITA, nullptr,
-		WS_VISIBLE | WS_CHILD | WS_BORDER,
+	w_EditLoadedMeme = CreateWindowW(
+		WC_EDITW, nullptr,
+		WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_EDIT_MEME_LOADED_FNAME), w_Inst, nullptr
 	);
 
-	w_ButtonBrowse = CreateWindowA(
-		WC_BUTTONA, "Browse",
+	w_ButtonBrowse = CreateWindowW(
+		WC_BUTTONW, L"Browse",
 		WS_VISIBLE | WS_CHILD,
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_BUTTON_MEME_BROWSE), w_Inst, nullptr
@@ -662,6 +689,12 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	for(int i = 0; i < controls_num; ++i)
 	{
+		if (controlsList[i] == w_EditLoadedMeme)
+		{
+			HFONT hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Consolas");
+			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
+			continue;
+		}
 		if(i >= 4)
 		{
 			HFONT hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
@@ -669,6 +702,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 			if(i != 14)
 				continue;
 		}
+		
 		SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>((HFONT)GetStockObject(DEFAULT_GUI_FONT)), true);
 	}
 	return;
@@ -741,6 +775,39 @@ void Application::InitCommand(HWND w_Handle, WPARAM wParam, LPARAM lParam)
 			break;
 	}
 	return;
+}
+
+std::wstring OpenFileWithDialog(const wchar_t* Filters, HWND w_Handle, int criteria)
+{
+	OPENFILENAMEW ofn = { };
+	wchar_t* _Path = new wchar_t[MAX_PATH];
+
+	memset(&ofn, 0, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = w_Handle;
+	ofn.lpstrFilter = Filters;
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFile = _Path;
+	ofn.lpstrFile[0] = '\0';
+	if (criteria == 1) ofn.lpstrTitle = L"Open File";
+	else ofn.lpstrTitle = L"Save File";
+	ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = (OFN_EXPLORER | OFN_PATHMUSTEXIST);
+
+	if (criteria == 1)
+	{
+		if (!GetOpenFileNameW(&ofn))
+			return std::wstring(L"\0");
+	}
+	else
+	{
+		if (!GetSaveFileNameW(&ofn))
+			return std::wstring(L"\0");
+	}
+
+	std::wstring __Path(_Path);
+	delete[] _Path;
+	return __Path;
 }
 
 bool LV_InsertColumns(HWND w_lvHandle, std::vector<const wchar_t*> Columns)
@@ -936,6 +1003,20 @@ LRESULT __stdcall Application::WndProc_TabControl(
 
 					RECT lvRect;
 					GetClientRect(w_StringsTreeList, &lvRect);
+
+					Gdiplus::Rect current_rect;
+					current_rect.X = std::stoi(str_pos_x);
+					current_rect.Y = std::stoi(str_pos_y);
+					current_rect.Width = 300;
+					current_rect.Height = 200;
+
+
+					MemeText memeTextObj;
+					memeTextObj.text = meme_text.c_str();
+					memeTextObj.text_color = Runtime_rgbCurrent;
+					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+					memeTextObj.text_rect = current_rect;
+					Runtime_MemeTexts.push_back(memeTextObj);
 					break;
 				}
 			}	
@@ -1005,6 +1086,10 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 					SetWindowTextW(w_EditG, woss.str().c_str()); woss.str(L"");
 					woss << blue;
 					SetWindowTextW(w_EditB, woss.str().c_str()); woss.str(L"");
+
+					RECT inspectRect;
+					GetClientRect(w_StaticColorInspector, &inspectRect);
+					InvalidateRect(w_StaticColorInspector, &inspectRect, TRUE);
 					break;
 				}
 			}
@@ -1022,6 +1107,77 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 				SetBkColor(hdc, ::Runtime_rgbCurrent);
 				return (LRESULT)CreateSolidBrush(::Runtime_rgbCurrent);
 			}
+			break;
+		}
+		default:
+			return DefSubclassProc(w_Handle, Msg, wParam, lParam);
+	}
+	return 0;
+}
+
+LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+	switch (Msg)
+	{
+
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			HDC hdc = BeginPaint(w_Handle, &ps);
+
+			RECT wRect;
+			GetClientRect(w_Handle, &wRect);
+
+			Gdiplus::Rect wrct(0, 0, wRect.right - wRect.left, wRect.bottom - wRect.top);
+
+			std::wostringstream woss;
+			woss << Runtime_CurrentMemePath;
+
+			Gdiplus::Graphics gfx(hdc);
+			Gdiplus::Image img(woss.str().c_str());
+			gfx.DrawImage(&img, wrct);
+
+			if (Runtime_MemeTexts.size() != 0)
+			{
+				for (std::size_t i = 0ull; i < Runtime_MemeTexts.size(); ++i)
+				{
+					Gdiplus::Rect rect_t = Runtime_MemeTexts[i].text_rect;
+					RECT trect = { rect_t.GetLeft(), rect_t.GetTop(), rect_t.GetRight(), rect_t.GetBottom() };
+
+					SetBkColor(hdc, TRANSPARENT);
+					SetTextColor(hdc, Runtime_MemeTexts[i].text_color);
+
+					SelectObject(hdc, Runtime_MemeTexts[i].font);
+					DrawText(
+						hdc, Runtime_MemeTexts[i].text.c_str(),
+						Runtime_MemeTexts[i].text.length(),
+						&trect, 0
+					);
+				}
+			}
+
+			EndPaint(w_Handle, &ps);
+			break;
+		}
+		default:
+			return DefSubclassProc(w_Handle, Msg, wParam, lParam);
+	}
+	return 0;
+}
+
+LRESULT __stdcall Application::WndProc_ColorReview(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+	switch (Msg)
+	{
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			HDC hdc = BeginPaint(w_Handle, &ps);
+			HBRUSH hbr = CreateSolidBrush(Runtime_rgbCurrent);
+			RECT wRect;
+			GetClientRect(w_Handle, &wRect);
+			FillRect(hdc, &wRect, hbr);
+			EndPaint(w_Handle, &ps);
 			break;
 		}
 		default:
@@ -1190,11 +1346,11 @@ void ManageMultipleSyncKeys(MSG& Msg)
 void Application::RunMessageLoop()
 {
 	MSG Msg = { };
-	while (GetMessage(&Msg, nullptr, 0, 0) > 0)
+	while (GetMessageW(&Msg, nullptr, 0, 0) > 0)
 	{
 		TranslateMessage(&Msg);
 		::ManageMultipleSyncKeys(Msg);
-		DispatchMessage(&Msg);
+		DispatchMessageW(&Msg);
 	}
 	return;
 }
