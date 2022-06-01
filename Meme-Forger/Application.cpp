@@ -705,6 +705,9 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		
 		SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>((HFONT)GetStockObject(DEFAULT_GUI_FONT)), true);
 	}
+
+	// TODO: Remove this
+	MessageBoxW(w_Handle, L"Meme-Forger is in development.\nYou will not be able to make memes YET.", L"NOTICE", MB_ICONINFORMATION | MB_OK);
 	return;
 }
 
