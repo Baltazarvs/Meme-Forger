@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Baltazarus
+// Copyright (C) 2020 - 2022 Baltazarus
 
 #include "Application.h"
 #include "resource.h"
@@ -1017,6 +1017,11 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
 					memeTextObj.text_rect = current_rect;
 					Runtime_MemeTexts.push_back(memeTextObj);
+
+					RECT memeRect;
+					GetClientRect(w_MemeArea, &memeRect);
+					InvalidateRect(w_MemeArea, &memeRect, TRUE);
+					UpdateWindow(w_MemeArea);
 					break;
 				}
 			}	

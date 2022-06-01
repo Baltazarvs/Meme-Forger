@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Baltazarus
+// Copyright (C) 2020 - 2022 Baltazarus
 
 #pragma once
 #define _WIN32_WINNT 0x501

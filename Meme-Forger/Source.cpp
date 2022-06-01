@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Baltazarus
+// Copyright (C) 2020 - 2022 Baltazarus
 
 #include "Application.h"
 
