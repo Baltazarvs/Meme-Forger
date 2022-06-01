@@ -20,7 +20,7 @@ void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
 
 // ============ Runtime Control Variables ===========
-static wchar_t Runtime_CurrentMemePath[MAX_PATH] = L"45e.jpg";
+static wchar_t Runtime_CurrentMemePath[MAX_PATH];
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
 static int Runtime_MemeFormatHeight = 512;						// Format size for height
 static std::size_t Runtime_CurrentImageSize = 0ull;				// Current image size in bytes.
@@ -1014,7 +1014,7 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					MemeText memeTextObj;
 					memeTextObj.text = meme_text.c_str();
 					memeTextObj.text_color = Runtime_rgbCurrent;
-					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
 					memeTextObj.text_rect = current_rect;
 					Runtime_MemeTexts.push_back(memeTextObj);
 					break;
@@ -1132,6 +1132,12 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 			std::wostringstream woss;
 			woss << Runtime_CurrentMemePath;
+
+			if (woss.str().length() < 1)
+			{
+				EndPaint(w_Handle, &ps);
+				return 1;
+			}
 
 			Gdiplus::Graphics gfx(hdc);
 			Gdiplus::Image img(woss.str().c_str());
