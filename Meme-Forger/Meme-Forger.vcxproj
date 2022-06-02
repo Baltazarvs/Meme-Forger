@@ -155,6 +155,10 @@
   <ItemGroup>
     <ResourceCompile Include="Meme-Forger.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="source\media\icons\Icon_Add.ico" />
+    <Image Include="source\media\icons\select_pos.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

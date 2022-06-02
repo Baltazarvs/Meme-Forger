@@ -19,6 +19,8 @@ template <typename T> std::wstring ConvertToHex(T val_to_hex);
 void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
 
+bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel = 24);
+
 // ============ Runtime Control Variables ===========
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
@@ -39,6 +41,9 @@ static bool bRuntime_ShowMenuBar = true;
 static HMENU Runtime_hMenu = nullptr;
 
 std::vector<MemeText> Runtime_MemeTexts;
+
+static bool Runtime_MemeTextSelected = false;
+static std::size_t Runtime_MemeTextSelectedIndex = 0;
 
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
@@ -76,6 +81,7 @@ static HWND w_AdvancedFontSelect = nullptr;
 
 struct MemeText
 {
+	int index;
 	Gdiplus::Rect text_rect;
 	COLORREF text_color;
 	HFONT font;
@@ -476,7 +482,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 			SetBkColor(hdc, RGB(0xFF, 0xFF, 0xFF));
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
-			DeleteDC(hdc);
 			return reinterpret_cast<INT_PTR>(defhbr);
 		}
 		case WM_CLOSE:
@@ -545,7 +550,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	DWORD lvexsty = (LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 	w_StringsTreeList = CreateWindowExW(
 		lvexsty, WC_LISTVIEWW, nullptr,
-		defStyles | WS_BORDER | LVS_REPORT | LVS_EDITLABELS,
+		defStyles | WS_BORDER | LVS_REPORT, // | LVS_EDITLABELS
 		15, 35, 300, 300,
 		w_TabControl, ID(IDC_LIST_TEXT_TREE), w_Inst, nullptr
 	);
@@ -668,7 +673,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	);
 
 	w_StaticColorInspector = CreateWindowW(
-		WC_STATICW, L"Color Review",
+		WC_STATICW, nullptr,
 		defStyles | WS_BORDER,
 		0, 0, 0, 0,
 		w_GroupBoxStyle, ID(IDC_STATIC_COLOR_INSPECT), w_Inst, nullptr
@@ -922,7 +927,6 @@ LRESULT __stdcall Application::GroupBoxPosProc(
 			HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 			SetBkColor(hdc, RGB(0xFF, 0xFF, 0xFF));
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
-			DeleteDC(hdc);
 			return reinterpret_cast<INT_PTR>(CreateSolidBrush(GetSysColor(COLOR_WINDOW)));
 		}
 		default:
@@ -1013,7 +1017,9 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					Items.push_back(str_pos.c_str());
 					Items.push_back(str_color.c_str());
 
-					LV_InsertItems(w_StringsTreeList, 0, Items);
+					static int index_item = 0;
+					LV_InsertItems(w_StringsTreeList, index_item, Items);
+					++index_item;
 
 					SetWindowTextW(w_EditTextValue, nullptr);
 					SetWindowTextW(w_EditPosX, L"0");
@@ -1030,6 +1036,7 @@ LRESULT __stdcall Application::WndProc_TabControl(
 
 
 					MemeText memeTextObj;
+					memeTextObj.index = index_item;
 					memeTextObj.text = meme_text.c_str();
 					memeTextObj.text_color = Runtime_rgbCurrent;
 					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
@@ -1047,7 +1054,31 @@ LRESULT __stdcall Application::WndProc_TabControl(
 		}
 		case WM_NOTIFY:
 		{
-			if (((LPNMHDR)lParam)->code == LVN_COLUMNCLICK)
+			if (reinterpret_cast<LPNMHDR>(lParam)->code == LVN_KEYDOWN)
+			{
+				NMLVKEYDOWN* nmlvk;
+				nmlvk = reinterpret_cast<NMLVKEYDOWN*>(lParam);
+				if (nmlvk->wVKey == 0x41)
+				{
+					if (ListView_GetSelectedCount(w_StringsTreeList) < 1)
+					{
+						MessageBoxW(w_Handle, L"No text was selected.", L"No Selection", MB_ICONINFORMATION | MB_OK);
+						return 1;
+					}
+
+					Runtime_MemeTextSelected = true;
+					::Runtime_MemeTextSelectedIndex = static_cast<std::size_t>(ListView_GetNextItem(w_StringsTreeList, -1, LVNI_SELECTED));
+
+					DialogBoxW(
+						Application::WClass::GetInstance(),
+						MAKEINTRESOURCEW(IDD_ACTION),
+						w_Handle,
+						reinterpret_cast<DLGPROC>(&Application::DlgProc_Actions)
+					);
+				}
+			}
+
+			if (reinterpret_cast<LPNMHDR>(lParam)->code == LVN_COLUMNCLICK)
 			{
 				switch (((LPNMHDR)lParam)->idFrom)
 				{
@@ -1059,14 +1090,6 @@ LRESULT __stdcall Application::WndProc_TabControl(
 												  "Action - modify current text or delete it";
 
 						MessageBoxA(GetParent(w_Handle), explain_str, "Text Tree", MB_OK | MB_ICONINFORMATION);
-						DialogBoxW(
-							GetModuleHandleW(nullptr),
-							MAKEINTRESOURCEW(IDD_ACTION),
-							GetParent(w_Handle),
-							reinterpret_cast<DLGPROC>(
-								&Application::DlgProc_Actions
-							)
-						);
 						break;
 					}
 				}
@@ -1128,7 +1151,6 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 				HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 				SetTextColor(hdc, ::Runtime_rgbCurrent);
 				SetBkColor(hdc, ::Runtime_rgbCurrent);
-				DeleteDC(hdc);
 				return (LRESULT)CreateSolidBrush(::Runtime_rgbCurrent);
 			}
 			break;
@@ -1188,7 +1210,6 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 			EndPaint(w_Handle, &ps);
 			gfx.ReleaseHDC(hdc);
-			DeleteDC(hdc);
 			break;
 		}
 		default:
@@ -1205,12 +1226,11 @@ LRESULT __stdcall Application::WndProc_ColorReview(HWND w_Handle, UINT Msg, WPAR
 		{
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(w_Handle, &ps);
-			HBRUSH hbr = CreateSolidBrush(Runtime_rgbCurrent);
+			HBRUSH hbr = CreateSolidBrush((COLORREF)dwRefData);
 			RECT wRect;
 			GetClientRect(w_Handle, &wRect);
 			FillRect(hdc, &wRect, hbr);
 			EndPaint(w_Handle, &ps);
-			DeleteDC(hdc);
 			DeleteObject(hbr);
 			break;
 		}
@@ -1260,7 +1280,6 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 			HDC hdc = reinterpret_cast<HDC>(wParam);
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
 			SetBkColor(hdc, RGB(120, 174, 255));
-			DeleteDC(hdc);
 			return (LRESULT)CreateSolidBrush(RGB(120, 174, 255));
 		}
 		case WM_COMMAND:
@@ -1269,10 +1288,27 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 			{
 				case IDC_BUTTON_DELETE:
 				{
+					ListView_DeleteItem(w_StringsTreeList, ::Runtime_MemeTextSelectedIndex);
+					::Runtime_MemeTexts.erase(::Runtime_MemeTexts.begin() + ::Runtime_MemeTextSelectedIndex);
+					
+					RECT memeRect;
+					GetClientRect(w_MemeArea, &memeRect);
+					InvalidateRect(w_MemeArea, &memeRect, TRUE);
+					UpdateWindow(w_MemeArea);
+					--::Runtime_CurrentTextsAdded;
+
+					EndDialog(w_Dlg, 0);
 					break;
 				}
 				case IDC_BUTTON_MODIFY:
 				{
+					EndDialog(w_Dlg, IDC_BUTTON_MODIFY);
+					DialogBoxW(
+						Application::WClass::GetInstance(),
+						MAKEINTRESOURCEW(IDD_MODIFYTEXT),
+						GetParent(w_Dlg),
+						reinterpret_cast<DLGPROC>(&Application::DlgProc_Modify)
+					);
 					break;
 				}
 				case IDCANCEL:
@@ -1306,6 +1342,89 @@ LRESULT __stdcall Application::DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam
 			if (LOWORD(wParam) == IDOK)
 				EndDialog(w_Dlg, IDOK);
 			break;
+		case WM_CLOSE:
+			EndDialog(w_Dlg, 0);
+			break;
+	}
+	return 0;
+}
+
+LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	HWND w_EditX = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_X);
+	HWND w_EditY = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_Y);
+	
+	HWND w_EditR = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_R);
+	HWND w_EditG = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_G);
+	HWND w_EditB = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_B);
+
+	HWND W_ButtonColorPick = GetDlgItem(w_Dlg, IDC_BUTTON_MODIFY_COLOR_PICK);
+	HWND w_ButtonFontPick = GetDlgItem(w_Dlg, IDC_BUTTON_MODIFY_PICK_FONT);
+
+	HWND w_EditText = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_TEXT);
+	HWND w_StaticInspect = GetDlgItem(w_Dlg, IDC_STATIC_MODIFY_COLOR_INSPECT);
+
+	static COLORREF currRgb = ::Runtime_rgbCurrent;
+
+	switch (Msg)
+	{
+		case WM_INITDIALOG:
+		{
+			if (::Runtime_MemeTextSelectedIndex >= ::Runtime_MemeTexts.size())
+			{
+				MessageBoxW(w_Dlg, L"Invalid Text Index", L"Error", MB_ICONERROR | MB_OK);
+				EndDialog(w_Dlg, -1);
+				return -1;
+			}
+			
+			currRgb = ::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color;
+			SetWindowSubclass(w_StaticInspect, &Application::WndProc_ColorReview, 0, (DWORD_PTR)currRgb);
+			std::wstring selected_text_index_tostr = std::to_wstring(::Runtime_MemeTextSelectedIndex);
+
+			SetWindowTextW(w_EditText, ::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text.c_str());
+			
+			SetWindowTextW(w_EditX, std::to_wstring(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_rect.X).c_str());
+			SetWindowTextW(w_EditY, std::to_wstring(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_rect.Y).c_str());
+			
+			SetWindowTextW(w_EditR, std::to_wstring(GetRValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
+			SetWindowTextW(w_EditG, std::to_wstring(GetGValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
+			SetWindowTextW(w_EditB, std::to_wstring(GetBValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
+			break;
+		}
+		case WM_COMMAND:
+		{
+			switch (LOWORD(wParam))
+			{
+				case IDC_BUTTON_MODIFY_COLOR_PICK:
+				{
+					COLORREF text_color = ::GetColorFromDialog(
+						w_Dlg,
+						GetModuleHandle(nullptr)
+					);
+
+					BYTE red = GetRValue(text_color);
+					BYTE green = GetGValue(text_color);
+					BYTE blue = GetBValue(text_color);
+
+					std::wostringstream woss;
+					woss << red;
+					SetWindowTextW(w_EditR, woss.str().c_str()); woss.str(L"");
+					woss << green;
+					SetWindowTextW(w_EditG, woss.str().c_str()); woss.str(L"");
+					woss << blue;
+					SetWindowTextW(w_EditB, woss.str().c_str()); woss.str(L"");
+
+					RECT inspectRect;
+					GetClientRect(w_StaticInspect, &inspectRect);
+					InvalidateRect(w_StaticInspect, &inspectRect, TRUE);
+					break;
+				}
+				case IDCANCEL:
+					EndDialog(w_Dlg, 0);
+					break;
+			}
+			break;
+		}
 		case WM_CLOSE:
 			EndDialog(w_Dlg, 0);
 			break;
@@ -1376,6 +1495,48 @@ void ManageMultipleSyncKeys(MSG& Msg)
 		}
 	}
 	return;
+}
+
+bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel)
+{
+	uint32_t Width = Area.right - Area.left;
+	uint32_t Height = Area.bottom - Area.top;
+
+	BITMAPINFO Info;
+	BITMAPFILEHEADER Header;
+	memset(&Info, 0, sizeof(Info));
+	memset(&Header, 0, sizeof(Header));
+	Info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	Info.bmiHeader.biWidth = Width;
+	Info.bmiHeader.biHeight = Height;
+	Info.bmiHeader.biPlanes = 1;
+	Info.bmiHeader.biBitCount = BitsPerPixel;
+	Info.bmiHeader.biCompression = BI_RGB;
+	Info.bmiHeader.biSizeImage = Width * Height * (BitsPerPixel > 24 ? 4 : 3);
+	Header.bfType = 0x4D42;
+	Header.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+
+	char* Pixels = NULL;
+	HDC MemDC = CreateCompatibleDC(Context);
+	HBITMAP Section = CreateDIBSection(Context, &Info, DIB_RGB_COLORS, (void**)&Pixels, 0, 0);
+	DeleteObject(SelectObject(MemDC, Section));
+	BitBlt(MemDC, 0, 0, Width, Height, Context, Area.left, Area.top, SRCCOPY);
+	DeleteDC(MemDC);
+
+	std::fstream hFile(FilePath, std::ios::out | std::ios::binary);
+	if (hFile.is_open())
+	{
+		hFile.write((char*)&Header, sizeof(Header));
+		hFile.write((char*)&Info.bmiHeader, sizeof(Info.bmiHeader));
+		hFile.write(Pixels, (((BitsPerPixel * Width + 31) & ~31) / 8) * Height);
+		hFile.close();
+		DeleteObject(Section);
+		return true;
+	}
+
+	DeleteObject(Section);
+	return false;
 }
 
 void Application::RunMessageLoop()

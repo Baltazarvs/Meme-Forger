@@ -9,6 +9,20 @@
 #define IDS_STRING_ABOUT_DESC           105
 #define IDI_ICON_SELECT_POS             114
 #define IDD_ABOUT                       115
+#define IDD_MODIFYTEXT                  117
+#define IDC_EDIT_MODIFY_X               1000
+#define IDC_EDIT_MODIFY_Y               1001
+#define IDC_BUTTON_MODIFY_COLOR_PICK    1002
+#define IDC_EDIT_MODIFY_R               1003
+#define IDC_EDIT_MODIFY_G               1004
+#define IDC_EDIT_MODIFY_B               1005
+#define IDC_COMBO_MODIFY_FONT_FAMILY    1007
+#define IDC_EDIT_MODIFY_FONT_SIZE       1008
+#define IDC_BUTTON_MODIFY_PICK_FONT     1009
+#define IDC_STATIC_MODIFY_FONT_TEST     1010
+#define IDC_EDIT_MODIFY_TEXT            1011
+#define IDC_STATIC_MODIFY_FONT_TEST2    1012
+#define IDC_STATIC_MODIFY_COLOR_INSPECT 1012
 #define IDR_MENUBAR                     21000
 #define ID_FILE_OPEN                    21001
 #define ID_FILE_SAVE                    21002
@@ -42,19 +56,19 @@
 #define IDD_ACTION                      40001
 #define IDC_STATIC_ABOUT_BY             50001
 #define IDC_STATIC_ABOUT_DESC           50002
-#define IDC_EDIT_MEME_LOADED_FNAME		60001
-#define IDC_BUTTON_MEME_BROWSE			60002
-#define IDC_BUTTON_GROUP_FONT			60011
-#define IDC_BUTTON_EDIT_FONT_SIZE		60012
-#define IDC_BUTTON_ADVANCED_FONT		60013
+#define IDC_EDIT_MEME_LOADED_FNAME      60001
+#define IDC_BUTTON_MEME_BROWSE          60002
+#define IDC_BUTTON_GROUP_FONT           60011
+#define IDC_BUTTON_EDIT_FONT_SIZE       60012
+#define IDC_BUTTON_ADVANCED_FONT        60013
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        117
+#define _APS_NEXT_RESOURCE_VALUE        119
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1000
+#define _APS_NEXT_CONTROL_VALUE         1012
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
