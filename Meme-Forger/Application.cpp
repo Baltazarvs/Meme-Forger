@@ -66,6 +66,12 @@ static HWND w_ButtonActions = nullptr;
 
 static HWND w_EditLoadedMeme = nullptr;
 static HWND w_ButtonBrowse = nullptr;
+
+static HWND w_GroupBoxFont = nullptr;
+static HWND w_ComboFont = nullptr;
+static HWND w_EditFontSize = nullptr;
+static HWND w_AdvancedFontSelect = nullptr;
+
 // ==================================================
 
 struct MemeText
@@ -161,7 +167,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 	static HMENU hMenu = GetMenu(w_Handle);
 	static int coord_x = 0;
 	static int coord_y = 0;
-	HBRUSH defhbr = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+	static HBRUSH defhbr = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
 
 	switch (Msg)
 	{
@@ -250,7 +256,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			
 			RECT wRect;
 			GetClientRect(w_Handle, &wRect);
-
 
 			RECT memeRect;
 			MoveWindow(w_MemeArea, 0, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
@@ -384,6 +389,20 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				memeRect.left + (memeRect.right - memeRect.left - 100) + 2, memeRect.bottom - memeRect.top + 10 - 1, 
 				100, 32, TRUE
 			);
+
+			RECT styRect;
+			GetClientRect(w_GroupBoxStyle, &styRect);
+
+			int lvheight = lvRect.bottom - lvRect.top;
+
+			MoveWindow(
+				w_GroupBoxFont,
+				gposRect.right - gposRect.left + 15,
+				edRect.bottom + 50 + (styRect.bottom - styRect.top) + 15,
+				tabRect.right - gposRect.right - 25,
+				tabRect.bottom - lvheight - 300,
+				TRUE
+			);
 			return 0;
 		}
 		case WM_MOUSEMOVE:
@@ -414,7 +433,8 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 						)
 					);
 					SetCursor(hCursor);
-					
+					DestroyCursor(hCursor);
+
 					static std::wostringstream oss;
 					oss << coord_x;
 					SendMessageW(w_EditPosX, WM_SETTEXT, 0u, reinterpret_cast<LPARAM>(oss.str().c_str()));
@@ -435,13 +455,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			break;
 		}
-		case WM_PAINT:
-		{
-			PAINTSTRUCT ps;
-			HDC hdc = BeginPaint(w_Handle, &ps);
-			EndPaint(w_Handle, &ps);
-			break;
-		}
 		case WM_LBUTTONDOWN:
 		{
 			if(::bRuntime_EnableCoordinateSelection)
@@ -460,15 +473,17 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		}
 		case WM_CTLCOLORSTATIC:
 		{
-			HDC hdc = reinterpret_cast<HDC>(wParam);
+			HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 			SetBkColor(hdc, RGB(0xFF, 0xFF, 0xFF));
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
+			DeleteDC(hdc);
 			return reinterpret_cast<INT_PTR>(defhbr);
 		}
 		case WM_CLOSE:
 			DestroyWindow(w_Handle);
 			break;
 		case WM_DESTROY:
+			DeleteObject(defhbr);
 			PostQuitMessage(0);
 			break;
 		default:
@@ -668,7 +683,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	w_EditLoadedMeme = CreateWindowW(
 		WC_EDITW, nullptr,
-		WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+		WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL | ES_READONLY,
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_EDIT_MEME_LOADED_FNAME), w_Inst, nullptr
 	);
@@ -680,61 +695,60 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_Handle, ID(IDC_BUTTON_MEME_BROWSE), w_Inst, nullptr
 	);
 
-	const int controls_num = 15;
-	HWND controlsList[controls_num] = { 
+	w_GroupBoxFont = CreateWindowW(
+		WC_BUTTONW, L"Font",
+		defStyles | BS_GROUPBOX,
+		0, 0, 0, 0,
+		w_TabControl, ID(IDC_BUTTON_GROUP_FONT), w_Inst, nullptr
+	);
+
+	w_EditFontSize = CreateWindowW(
+		WC_EDITW, nullptr,
+		defStyles | ES_NUMBER | ES_AUTOHSCROLL,
+		0, 0, 0, 0,
+		w_GroupBoxFont, ID(IDC_BUTTON_EDIT_FONT_SIZE), w_Inst, nullptr
+	);
+
+	w_AdvancedFontSelect = CreateWindowW(
+		WC_BUTTONW, L"Select",
+		defStyles | BS_PUSHBUTTON,
+		0, 0, 0, 0,
+		w_GroupBoxFont, ID(IDC_BUTTON_ADVANCED_FONT), w_Inst, nullptr
+	);
+
+	HWND controlsList[] = { 
 		w_MemeArea, w_TabControl, w_StatusBar, w_StringsTreeList, w_EditTextValue,
 		w_StaticPosX, w_StaticPosY, w_EditPosX, w_EditPosY, w_EditR, w_EditG, w_EditB,
-		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse
+		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse, w_GroupBoxFont,
+		w_EditFontSize, w_AdvancedFontSelect
 	};
 
-	for(int i = 0; i < controls_num; ++i)
+	HFONT hFont = nullptr;
+	for(int i = 0; i < (sizeof(controlsList) / sizeof(controlsList[0])); ++i)
 	{
+		hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 		if (controlsList[i] == w_EditLoadedMeme)
 		{
-			HFONT hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Consolas");
+			DeleteObject(hFont);
+			hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Consolas");
 			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
 			continue;
 		}
 		if(i >= 4)
 		{
-			HFONT hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
+			DeleteObject(hFont);
+			hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
 			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
 			if(i != 14)
 				continue;
 		}
 		
-		SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>((HFONT)GetStockObject(DEFAULT_GUI_FONT)), true);
+		SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
 	}
+	DeleteObject(hFont);
 
 	// TODO: Remove this
 	MessageBoxW(w_Handle, L"Meme-Forger is in development.\nYou will not be able to make memes YET.", L"NOTICE", MB_ICONINFORMATION | MB_OK);
-	return;
-}
-
-void Application::DrawMeme(HWND w_MemeHandle, HDC hdc)
-{
-	static Gdiplus::Graphics gfx(hdc);
-	this->m_Gfx = &gfx;
-
-	Gdiplus::Image img(L"45e.jpg");
-	(*this->m_Gfx).DrawImage(&img, 0, 0, 512, 512); 
-	return;
-}
-
-void Application::DrawMemeString(const wchar_t* lpwstrMemeString, Gdiplus::Graphics& rgfx)
-{
-	Gdiplus::SolidBrush sbr(Gdiplus::Color::Black);
-	Gdiplus::FontFamily ffamily(L"Impact");
-	Gdiplus::Font font(&ffamily, 24);
-	Gdiplus::PointF ptf(0, 0);
-
-	GDIPlusStringDesc dsc;
-	dsc.length = -1;
-	dsc.brush = &sbr;
-	dsc.font = &font;
-	dsc.ptf = &ptf;
-
-	rgfx.DrawString(lpwstrMemeString, dsc.length, dsc.font, *dsc.ptf, dsc.brush);
 	return;
 }
 
@@ -905,9 +919,10 @@ LRESULT __stdcall Application::GroupBoxPosProc(
 			return reinterpret_cast<INT_PTR>(CreateSolidBrush(GetSysColor(COLOR_WINDOW)));
 		case WM_CTLCOLORSTATIC:
 		{
-			HDC hdc = reinterpret_cast<HDC>(wParam);
+			HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 			SetBkColor(hdc, RGB(0xFF, 0xFF, 0xFF));
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
+			DeleteDC(hdc);
 			return reinterpret_cast<INT_PTR>(CreateSolidBrush(GetSysColor(COLOR_WINDOW)));
 		}
 		default:
@@ -1110,9 +1125,10 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 			DWORD control_id = GetDlgCtrlID(reinterpret_cast<HWND>(lParam));
 			if(control_id == IDC_STATIC_COLOR_INSPECT)
 			{
-				HDC hdc = reinterpret_cast<HDC>(wParam);
+				HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
 				SetTextColor(hdc, ::Runtime_rgbCurrent);
 				SetBkColor(hdc, ::Runtime_rgbCurrent);
+				DeleteDC(hdc);
 				return (LRESULT)CreateSolidBrush(::Runtime_rgbCurrent);
 			}
 			break;
@@ -1162,7 +1178,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 					SetTextColor(hdc, Runtime_MemeTexts[i].text_color);
 
 					SelectObject(hdc, Runtime_MemeTexts[i].font);
-					DrawText(
+					DrawTextW(
 						hdc, Runtime_MemeTexts[i].text.c_str(),
 						Runtime_MemeTexts[i].text.length(),
 						&trect, 0
@@ -1171,6 +1187,8 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 			}
 
 			EndPaint(w_Handle, &ps);
+			gfx.ReleaseHDC(hdc);
+			DeleteDC(hdc);
 			break;
 		}
 		default:
@@ -1192,6 +1210,8 @@ LRESULT __stdcall Application::WndProc_ColorReview(HWND w_Handle, UINT Msg, WPAR
 			GetClientRect(w_Handle, &wRect);
 			FillRect(hdc, &wRect, hbr);
 			EndPaint(w_Handle, &ps);
+			DeleteDC(hdc);
+			DeleteObject(hbr);
 			break;
 		}
 		default:
@@ -1240,6 +1260,7 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 			HDC hdc = reinterpret_cast<HDC>(wParam);
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
 			SetBkColor(hdc, RGB(120, 174, 255));
+			DeleteDC(hdc);
 			return (LRESULT)CreateSolidBrush(RGB(120, 174, 255));
 		}
 		case WM_COMMAND:

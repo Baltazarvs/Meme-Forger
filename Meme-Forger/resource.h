@@ -44,6 +44,9 @@
 #define IDC_STATIC_ABOUT_DESC           50002
 #define IDC_EDIT_MEME_LOADED_FNAME		60001
 #define IDC_BUTTON_MEME_BROWSE			60002
+#define IDC_BUTTON_GROUP_FONT			60011
+#define IDC_BUTTON_EDIT_FONT_SIZE		60012
+#define IDC_BUTTON_ADVANCED_FONT		60013
 
 // Next default values for new objects
 // 
