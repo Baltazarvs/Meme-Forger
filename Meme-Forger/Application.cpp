@@ -436,9 +436,9 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 			MoveWindow(
 				w_ExportMeme,
-				memeRect.left + 5,
+				memeRect.left + 4,
 				memeRect.bottom - memeRect.top + (brRect.bottom - brRect.top) + 10,
-				(memeRect.right - memeRect.left - 100) + 2 + (brRect.right - brRect.left),
+				(memeRect.right - memeRect.left - 100) + 3 + (brRect.right - brRect.left),
 				30, TRUE
 			);
 
@@ -779,7 +779,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
 			continue;
 		}
-		if(i >= 4)
+		if(i >= 4 && i < 18)
 		{
 			DeleteObject(hFont);
 			hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
