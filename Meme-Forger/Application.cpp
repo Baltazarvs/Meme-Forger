@@ -19,7 +19,7 @@ template <typename T> std::wstring ConvertToHex(T val_to_hex);
 void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
 
-bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel = 24);
+bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel = 24);
 
 // ============ Runtime Control Variables ===========
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
@@ -76,6 +76,8 @@ static HWND w_GroupBoxFont = nullptr;
 static HWND w_ComboFont = nullptr;
 static HWND w_EditFontSize = nullptr;
 static HWND w_AdvancedFontSelect = nullptr;
+
+static HWND w_ExportMeme = nullptr;
 
 // ==================================================
 
@@ -253,6 +255,25 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 					UpdateWindow(w_MemeArea);
 					break;
 				}
+				case IDC_BUTTON_EXPORT_MEME:
+				{
+					std::wstring path = OpenFileWithDialog(
+						L"JPG Image\0*.jpg\0"
+						L"PNG Image\0*.png\0"
+						L"Bitmap Image\0*.bmp\0",
+						w_Handle, 2
+					);
+
+					if (path.length() < 1)
+						break;
+
+					HDC hdc = GetDC(w_MemeArea);
+					RECT mRect;
+					GetClientRect(w_MemeArea, &mRect);
+					HDCToFile(path.c_str(), hdc, mRect);
+					ReleaseDC(w_MemeArea, hdc);
+					break;
+				}
 			}
 			break;
 		}
@@ -264,13 +285,13 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			GetClientRect(w_Handle, &wRect);
 
 			RECT memeRect;
-			MoveWindow(w_MemeArea, 0, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
+			MoveWindow(w_MemeArea, 5, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
 			GetClientRect(w_MemeArea, &memeRect);
 
 			RECT sbRect;
 			GetWindowRect(w_StatusBar, &sbRect);
 			int status_bar_height = sbRect.bottom - sbRect.top;
-			MoveWindow(w_TabControl, memeRect.right + 3, 0, wRect.right - memeRect.right - 3, wRect.bottom - status_bar_height, TRUE);
+			MoveWindow(w_TabControl, memeRect.right + 10, 0, wRect.right - memeRect.right - 3, wRect.bottom - status_bar_height, TRUE);
 			
 			int sb_first_part = wRect.right / 5;
 			int sb_second_part = sb_first_part + (wRect.right / 10);
@@ -386,13 +407,13 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 			MoveWindow(
 				w_EditLoadedMeme, 
-				memeRect.left, memeRect.bottom - memeRect.top + 10, 
+				memeRect.left + 5, memeRect.bottom - memeRect.top + 10, 
 				memeRect.right - memeRect.left - 100, 30, TRUE
 			);
 
 			MoveWindow(
 				w_ButtonBrowse, 
-				memeRect.left + (memeRect.right - memeRect.left - 100) + 2, memeRect.bottom - memeRect.top + 10 - 1, 
+				memeRect.left + (memeRect.right - memeRect.left - 100) + 2 + 5, memeRect.bottom - memeRect.top + 10 - 1, 
 				100, 32, TRUE
 			);
 
@@ -409,6 +430,18 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				tabRect.bottom - lvheight - 300,
 				TRUE
 			);
+
+			RECT brRect;
+			GetClientRect(w_ButtonBrowse, &brRect);
+
+			MoveWindow(
+				w_ExportMeme,
+				memeRect.left + 5,
+				memeRect.bottom - memeRect.top + (brRect.bottom - brRect.top) + 10,
+				(memeRect.right - memeRect.left - 100) + 2 + (brRect.right - brRect.left),
+				30, TRUE
+			);
+
 			return 0;
 		}
 		case WM_MOUSEMOVE:
@@ -721,11 +754,18 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_GroupBoxFont, ID(IDC_BUTTON_ADVANCED_FONT), w_Inst, nullptr
 	);
 
+	w_ExportMeme = CreateWindowW(
+		WC_BUTTONW, L"Export",
+		defStyles | BS_PUSHBUTTON,
+		0, 0, 0, 0,
+		w_Handle, ID(IDC_BUTTON_EXPORT_MEME), w_Inst, nullptr
+	);
+
 	HWND controlsList[] = { 
 		w_MemeArea, w_TabControl, w_StatusBar, w_StringsTreeList, w_EditTextValue,
 		w_StaticPosX, w_StaticPosY, w_EditPosX, w_EditPosY, w_EditR, w_EditG, w_EditB,
 		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse, w_GroupBoxFont,
-		w_EditFontSize, w_AdvancedFontSelect
+		w_EditFontSize, w_AdvancedFontSelect, w_ExportMeme
 	};
 
 	HFONT hFont = nullptr;
@@ -1497,7 +1537,7 @@ void ManageMultipleSyncKeys(MSG& Msg)
 	return;
 }
 
-bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel)
+bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel)
 {
 	uint32_t Width = Area.right - Area.left;
 	uint32_t Height = Area.bottom - Area.top;

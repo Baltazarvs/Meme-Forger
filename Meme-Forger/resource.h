@@ -61,6 +61,7 @@
 #define IDC_BUTTON_GROUP_FONT           60011
 #define IDC_BUTTON_EDIT_FONT_SIZE       60012
 #define IDC_BUTTON_ADVANCED_FONT        60013
+#define IDC_BUTTON_EXPORT_MEME			60014
 
 // Next default values for new objects
 // 
