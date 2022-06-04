@@ -23,6 +23,8 @@
 #define IDC_EDIT_MODIFY_TEXT            1011
 #define IDC_STATIC_MODIFY_FONT_TEST2    1012
 #define IDC_STATIC_MODIFY_COLOR_INSPECT 1012
+#define IDC_CHECK1                      1013
+#define IDC_CHECK_MODIFY_TRANSPARENT    1013
 #define IDR_MENUBAR                     21000
 #define ID_FILE_OPEN                    21001
 #define ID_FILE_SAVE                    21002
@@ -61,7 +63,9 @@
 #define IDC_BUTTON_GROUP_FONT           60011
 #define IDC_BUTTON_EDIT_FONT_SIZE       60012
 #define IDC_BUTTON_ADVANCED_FONT        60013
-#define IDC_BUTTON_EXPORT_MEME			60014
+#define IDC_BUTTON_EXPORT_MEME          60014
+#define IDC_BUTTON_SELECT_FONT          60015
+#define IDC_COMBO_SELECT_FONT           60016
 
 // Next default values for new objects
 // 
@@ -69,7 +73,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        119
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1012
+#define _APS_NEXT_CONTROL_VALUE         1014
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

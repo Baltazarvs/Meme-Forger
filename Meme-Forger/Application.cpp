@@ -6,6 +6,8 @@
 Application::WClass Application::WClass::WCInstance;
 Gdiplus::Graphics* Application::m_Gfx;
 
+#define PATH_SETTINGS_DEFAULT_FONTS		"settings\\default_fonts.txt"
+
 struct MemeText;
 
 std::wstring OpenFileWithDialog(const wchar_t* Filters, HWND w_Handle, int criteria);
@@ -18,10 +20,10 @@ template <typename T> T ConvertToInt(const wchar_t* val_to_int);
 template <typename T> std::wstring ConvertToHex(T val_to_hex);
 void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
-
 bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel = 24);
 
 // ============ Runtime Control Variables ===========
+static bool Runtime_MemeOpened = false;
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
 static int Runtime_MemeFormatWidth = 512;						// Format size for width
 static int Runtime_MemeFormatHeight = 512;						// Format size for height
@@ -32,7 +34,7 @@ static bool bRuntime_EnableCoordinateSelection = false;			// User turned on coor
 static std::size_t Runtime_CurrentTextsAdded = 0ull;			// Count how many texts have been added to meme.
 static COLORREF Runtime_customColors[16];						// Custom colors used for color dialog for meme text
 static COLORREF Runtime_rgbCurrent = RGB(0xFF, 0xFF, 0xFF);		// Current meme text color RGB value.
-
+static int index_item = 0;										// Index of current added item to Tree List.
 static bool Runtime_ColorModeHexEnabled = false;				// If hexadecimal color mode is enabled in SETTINGS.
 
 static bool bRuntime_ShowStatusBar = true;
@@ -44,6 +46,7 @@ std::vector<MemeText> Runtime_MemeTexts;
 
 static bool Runtime_MemeTextSelected = false;
 static std::size_t Runtime_MemeTextSelectedIndex = 0;
+LOGFONTW Runtime_LogFont = { 0 };
 
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
@@ -78,7 +81,6 @@ static HWND w_EditFontSize = nullptr;
 static HWND w_AdvancedFontSelect = nullptr;
 
 static HWND w_ExportMeme = nullptr;
-
 // ==================================================
 
 struct MemeText
@@ -86,8 +88,9 @@ struct MemeText
 	int index;
 	Gdiplus::Rect text_rect;
 	COLORREF text_color;
-	HFONT font;
+	LOGFONTW log_font;
 	std::wstring text;
+	bool bTransparent;
 };
 
 Application::WClass::WClass()
@@ -189,6 +192,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			SetWindowSubclass(w_TabControl, &Application::WndProc_TabControl, 0u, 0u);
 			SetWindowSubclass(w_GroupBoxStyle, &Application::WndProc_GroupStyle, 0u, 0u);
 			SetWindowSubclass(w_MemeArea, &Application::WndProc_MemeArea, 0u, 0u);
+			SetWindowSubclass(w_GroupBoxFont, &Application::WndProc_GroupFont, 0u, 0u);
 			break;
 		}
 		case WM_COMMAND:
@@ -245,6 +249,11 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 						0
 					);
 
+					if (path.length() > 1)
+						Runtime_MemeOpened = true;
+					else
+						Runtime_MemeOpened = false;
+
 					wcscpy(Runtime_CurrentMemePath, path.c_str());
 					SetWindowTextW(w_EditLoadedMeme, path.c_str());
 					SendMessageW(w_StatusBar, SB_SETTEXTW, 0u, reinterpret_cast<LPARAM>(path.c_str()));
@@ -257,6 +266,12 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				}
 				case IDC_BUTTON_EXPORT_MEME:
 				{
+					if (!Runtime_MemeOpened)
+					{
+						MessageBoxW(0, L"No image was imported.", L"Export", MB_ICONINFORMATION | MB_OK);
+						break;
+					}
+
 					std::wstring path = OpenFileWithDialog(
 						L"JPG Image\0*.jpg\0"
 						L"PNG Image\0*.png\0"
@@ -442,6 +457,35 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				30, TRUE
 			);
 
+			RECT fnRect;
+			GetClientRect(w_GroupBoxFont, &fnRect);
+			MoveWindow(
+				w_ComboFont, 
+				15, 25, 
+				fnRect.right - fnRect.left - 100,
+				30,
+				TRUE
+			);
+
+			RECT cbfRect;
+			GetClientRect(w_ComboFont, &cbfRect);
+
+			MoveWindow(
+				w_EditFontSize,
+				cbfRect.right - cbfRect.left + 20,
+				25,
+				(fnRect.right - fnRect.left) - (cbfRect.right - cbfRect.left) - 27,
+				21,
+				TRUE
+			);
+
+			MoveWindow(
+				w_AdvancedFontSelect,
+				14, 50,
+				fnRect.right - fnRect.left - 19,
+				30,
+				TRUE
+			);
 			return 0;
 		}
 		case WM_MOUSEMOVE:
@@ -742,7 +786,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	w_EditFontSize = CreateWindowW(
 		WC_EDITW, nullptr,
-		defStyles | ES_NUMBER | ES_AUTOHSCROLL,
+		defStyles | WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL,
 		0, 0, 0, 0,
 		w_GroupBoxFont, ID(IDC_BUTTON_EDIT_FONT_SIZE), w_Inst, nullptr
 	);
@@ -761,11 +805,35 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_Handle, ID(IDC_BUTTON_EXPORT_MEME), w_Inst, nullptr
 	);
 
+	w_ComboFont = CreateWindowW(
+		WC_COMBOBOXW, nullptr,
+		defStyles | CBS_DROPDOWNLIST,
+		0, 0, 0, 0,
+		w_GroupBoxFont, ID(IDC_COMBO_SELECT_FONT), w_Inst, nullptr
+	);
+
+	w_AdvancedFontSelect = CreateWindowW(
+		WC_BUTTONW, L"Choose Font...",
+		defStyles | BS_PUSHBUTTON,
+		0, 0, 0, 0,
+		w_GroupBoxFont, ID(IDC_BUTTON_SELECT_FONT), w_Inst, nullptr
+	);
+
+	std::wifstream file;
+	file.open(PATH_SETTINGS_DEFAULT_FONTS);
+	if (file.is_open())
+	{
+		std::wstring line;
+		while (std::getline(file, line))
+			ComboBox_AddString(w_ComboFont, line.c_str());
+		file.close();
+	}
+
 	HWND controlsList[] = { 
 		w_MemeArea, w_TabControl, w_StatusBar, w_StringsTreeList, w_EditTextValue,
 		w_StaticPosX, w_StaticPosY, w_EditPosX, w_EditPosY, w_EditR, w_EditG, w_EditB,
 		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse, w_GroupBoxFont,
-		w_EditFontSize, w_AdvancedFontSelect, w_ExportMeme
+		w_EditFontSize, w_AdvancedFontSelect, w_ExportMeme, w_ComboFont, w_EditFontSize
 	};
 
 	HFONT hFont = nullptr;
@@ -792,8 +860,6 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	}
 	DeleteObject(hFont);
 
-	// TODO: Remove this
-	MessageBoxW(w_Handle, L"Meme-Forger is in development.\nYou will not be able to make memes YET.", L"NOTICE", MB_ICONINFORMATION | MB_OK);
 	return;
 }
 
@@ -1057,7 +1123,6 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					Items.push_back(str_pos.c_str());
 					Items.push_back(str_color.c_str());
 
-					static int index_item = 0;
 					LV_InsertItems(w_StringsTreeList, index_item, Items);
 					++index_item;
 
@@ -1074,13 +1139,20 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					current_rect.Width = 300;
 					current_rect.Height = 200;
 
+					len = GetWindowTextLengthW(w_ComboFont) + 1;
+					buffer = new wchar_t[len + 1];
+					GetWindowTextW(w_ComboFont, buffer, len);
+					wcscpy(Runtime_LogFont.lfFaceName, buffer);
+					delete[] buffer;
 
 					MemeText memeTextObj;
 					memeTextObj.index = index_item;
 					memeTextObj.text = meme_text.c_str();
 					memeTextObj.text_color = Runtime_rgbCurrent;
-					memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
+					memeTextObj.log_font = Runtime_LogFont;
+					//memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
 					memeTextObj.text_rect = current_rect;
+					memeTextObj.bTransparent = true;
 					Runtime_MemeTexts.push_back(memeTextObj);
 
 					RECT memeRect;
@@ -1201,6 +1273,42 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 	return 0;
 }
 
+LRESULT __stdcall Application::WndProc_GroupFont(
+	HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData
+)
+{
+	switch (Msg)
+	{
+		case WM_COMMAND:
+		{
+			if (LOWORD(wParam) == IDC_BUTTON_SELECT_FONT)
+			{
+				CHOOSEFONTW cfn = { 0 };
+				cfn.lStructSize = sizeof(CHOOSEFONT);
+				cfn.hInstance = Application::WClass::GetInstance();
+				cfn.Flags = CF_NOSCRIPTSEL | CF_INITTOLOGFONTSTRUCT | CF_LIMITSIZE;
+				cfn.lpLogFont = &Runtime_LogFont;
+				cfn.hwndOwner = w_Handle;
+				cfn.rgbColors = ::Runtime_rgbCurrent;
+				cfn.hDC = nullptr;
+				cfn.nSizeMin = 8;
+				cfn.nSizeMax = 50;
+				cfn.nFontType = REGULAR_FONTTYPE;
+
+				ChooseFontW(&cfn);
+
+				ComboBox_AddString(w_ComboFont, Runtime_LogFont.lfFaceName);
+				ComboBox_SetCurSel(w_ComboFont, ComboBox_GetCount(w_ComboFont) - 1);
+				SetWindowTextW(w_EditFontSize, std::to_wstring(cfn.iPointSize / 10).c_str());
+			}
+			break;
+		}
+		default:
+			return DefSubclassProc(w_Handle, Msg, wParam, lParam);
+	}
+	return 0;
+}
+
 LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
 	switch (Msg)
@@ -1236,15 +1344,19 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 					Gdiplus::Rect rect_t = Runtime_MemeTexts[i].text_rect;
 					RECT trect = { rect_t.GetLeft(), rect_t.GetTop(), rect_t.GetRight(), rect_t.GetBottom() };
 
-					SetBkColor(hdc, TRANSPARENT);
+					if(Runtime_MemeTexts[i].bTransparent)
+						SetBkMode(hdc, TRANSPARENT);
 					SetTextColor(hdc, Runtime_MemeTexts[i].text_color);
 
-					SelectObject(hdc, Runtime_MemeTexts[i].font);
+					HFONT hFont = CreateFontIndirectW(&Runtime_MemeTexts[i].log_font);
+
+					SelectObject(hdc, hFont);
 					DrawTextW(
 						hdc, Runtime_MemeTexts[i].text.c_str(),
 						Runtime_MemeTexts[i].text.length(),
 						&trect, 0
 					);
+					DeleteObject(hFont);
 				}
 			}
 
@@ -1330,14 +1442,27 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 				{
 					ListView_DeleteItem(w_StringsTreeList, ::Runtime_MemeTextSelectedIndex);
 					::Runtime_MemeTexts.erase(::Runtime_MemeTexts.begin() + ::Runtime_MemeTextSelectedIndex);
-					
+
 					RECT memeRect;
 					GetClientRect(w_MemeArea, &memeRect);
 					InvalidateRect(w_MemeArea, &memeRect, TRUE);
 					UpdateWindow(w_MemeArea);
-					--::Runtime_CurrentTextsAdded;
 
-					EndDialog(w_Dlg, 0);
+					if (ListView_GetItemCount(w_StringsTreeList) == 0)
+						--::Runtime_CurrentTextsAdded = 0;
+					else
+					{
+						--::Runtime_CurrentTextsAdded;
+						--::index_item = Runtime_MemeTexts.size();
+					}
+
+					std::wstring str_temp;
+					for (std::size_t i = 0ull; i < Runtime_MemeTexts.size(); ++i)
+					{
+						str_temp = std::to_wstring(i + 1).c_str();
+						ListView_SetItemText(w_StringsTreeList, i, 0, (wchar_t*)str_temp.c_str());
+					}
+				EndDialog(w_Dlg, 0);
 					break;
 				}
 				case IDC_BUTTON_MODIFY:
@@ -1404,6 +1529,10 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 	HWND w_EditText = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_TEXT);
 	HWND w_StaticInspect = GetDlgItem(w_Dlg, IDC_STATIC_MODIFY_COLOR_INSPECT);
 
+	HWND w_CheckTransparent = GetDlgItem(w_Dlg, IDC_CHECK_MODIFY_TRANSPARENT);
+	HWND w_ComboModFonts = GetDlgItem(w_Dlg, IDC_COMBO_MODIFY_FONT_FAMILY);
+
+
 	static COLORREF currRgb = ::Runtime_rgbCurrent;
 
 	switch (Msg)
@@ -1429,6 +1558,18 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 			SetWindowTextW(w_EditR, std::to_wstring(GetRValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
 			SetWindowTextW(w_EditG, std::to_wstring(GetGValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
 			SetWindowTextW(w_EditB, std::to_wstring(GetBValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
+			
+			Button_SetCheck(w_CheckTransparent, (int)::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].bTransparent);
+			
+			std::wifstream file;
+			file.open(PATH_SETTINGS_DEFAULT_FONTS);
+			if (file.is_open())
+			{
+				std::wstring line;
+				while (std::getline(file, line))
+					ComboBox_AddString(w_ComboModFonts, line.c_str());
+				file.close();
+			}
 			break;
 		}
 		case WM_COMMAND:
