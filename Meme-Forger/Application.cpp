@@ -262,6 +262,28 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 					GetClientRect(w_MemeArea, &memeRect);
 					InvalidateRect(w_MemeArea, &memeRect, TRUE);
 					UpdateWindow(w_MemeArea);
+
+					std::ifstream file;
+					file.open(path, std::ios::binary);
+					if (file.is_open())
+					{
+						file.seekg(0, std::ios::end);
+						std::size_t size = file.tellg();
+						file.seekg(std::ios::beg);
+
+						std::wstring size_str;
+
+						if(size < 1024)
+							size_str += std::to_wstring(size) + L" Bytes";
+						else if (size <= std::pow(1024, 2))
+							size_str += std::to_wstring(size / 1024) + L" KB";
+						else if(size > std::pow(1024, 2))
+							size_str += std::to_wstring(std::ceil(size / std::pow(1024, 2))) + L" MB";
+
+						SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(size_str.c_str()));
+						
+						file.close();
+					}
 					break;
 				}
 				case IDC_BUTTON_EXPORT_MEME:
@@ -1150,7 +1172,6 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					memeTextObj.text = meme_text.c_str();
 					memeTextObj.text_color = Runtime_rgbCurrent;
 					memeTextObj.log_font = Runtime_LogFont;
-					//memeTextObj.font = (HFONT)GetStockObject(DEFAULT_GUI_FONT); // TODO: This is test. Remove!
 					memeTextObj.text_rect = current_rect;
 					memeTextObj.bTransparent = true;
 					Runtime_MemeTexts.push_back(memeTextObj);
@@ -1311,6 +1332,13 @@ LRESULT __stdcall Application::WndProc_GroupFont(
 
 LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
+	bool bSizeSession = false;
+
+	static int font_width = 0;
+	static int font_height = 0;
+	static int cursor_x = 0;
+	static int cursor_y = 0;
+
 	switch (Msg)
 	{
 
@@ -1356,6 +1384,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 						Runtime_MemeTexts[i].text.length(),
 						&trect, 0
 					);
+
 					DeleteObject(hFont);
 				}
 			}
