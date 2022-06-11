@@ -795,7 +795,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	);
 
 	w_ButtonBrowse = CreateWindowW(
-		WC_BUTTONW, L"Browse",
+		WC_BUTTONW, L"Import",
 		WS_VISIBLE | WS_CHILD,
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_BUTTON_MEME_BROWSE), w_Inst, nullptr
@@ -1368,9 +1368,9 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 			RECT mfRect = wRect;
 			mfRect.top += wRect.bottom - wRect.top - 15;
-			mfRect.left += wRect.right - wRect.left - 123;
+			mfRect.left += wRect.right - wRect.left - 123;	
 			SetBkMode(hdc, TRANSPARENT);
-			SetTextColor(hdc, RGB(0xFF, 0xFF, 0xFF));
+			SetTextColor(hdc, 0x00AAAAAA);
 
 			static const int points_per_inch = 72;
 			int pixels_per_inch = GetDeviceCaps(hdc, LOGPIXELSY);
