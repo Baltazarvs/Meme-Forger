@@ -1140,7 +1140,7 @@ LRESULT __stdcall Application::WndProc_TabControl(
 						str_color = L"RGB(" + color_r + L"," + color_g + L"," + color_b + L")";
 
 					std::vector<const wchar_t*> Items;
-					++::Runtime_CurrentTextsAdded;
+					::Runtime_CurrentTextsAdded += 1;
 					std::wstring index_to_str = ConvertToString<std::size_t>(::Runtime_CurrentTextsAdded).c_str();
 					Items.push_back(index_to_str.c_str());
 					Items.push_back(meme_text.c_str());
@@ -1494,11 +1494,14 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 					UpdateWindow(w_MemeArea);
 
 					if (ListView_GetItemCount(w_StringsTreeList) == 0)
-						--::Runtime_CurrentTextsAdded = 0;
+					{
+						::Runtime_CurrentTextsAdded = 0;
+						::index_item = 0;
+					}
 					else
 					{
 						--::Runtime_CurrentTextsAdded;
-						--::index_item = Runtime_MemeTexts.size();
+						--::index_item = static_cast<int>(Runtime_MemeTexts.size());
 					}
 
 					std::wstring str_temp;
