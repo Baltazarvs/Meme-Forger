@@ -6,6 +6,7 @@
 Application::WClass Application::WClass::WCInstance;
 Gdiplus::Graphics* Application::m_Gfx;
 
+#define MEME_PADDING					5
 #define PATH_SETTINGS_DEFAULT_FONTS		"settings\\default_fonts.txt"
 
 struct MemeText;
@@ -25,8 +26,8 @@ bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPer
 // ============ Runtime Control Variables ===========
 static bool Runtime_MemeOpened = false;
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
-static int Runtime_MemeFormatWidth = 512;						// Format size for width
-static int Runtime_MemeFormatHeight = 512;						// Format size for height
+static int Runtime_MemeFormatWidth = 510;						// Format size for width
+static int Runtime_MemeFormatHeight = 510;						// Format size for height
 static std::size_t Runtime_CurrentImageSize = 0ull;				// Current image size in bytes.
 static char Runtime_CurrentImagePath[MAX_PATH] = { };			// Current loaded meme image's filename.
 static bool bRuntime_CursorIsOverMemeArea = false;				// Is cursor over meme area? If yes true :)
@@ -322,7 +323,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			GetClientRect(w_Handle, &wRect);
 
 			RECT memeRect;
-			MoveWindow(w_MemeArea, 5, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
+			MoveWindow(w_MemeArea, 0, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
 			GetClientRect(w_MemeArea, &memeRect);
 
 			RECT sbRect;
@@ -508,6 +509,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				30,
 				TRUE
 			);
+
 			return 0;
 		}
 		case WM_MOUSEMOVE:
@@ -622,7 +624,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	w_MemeArea = CreateWindowW(
 		WC_STATICW, nullptr,
-		defStyles | WS_BORDER,
+		defStyles,
 		0, 0, 512, 512,
 		w_Handle, ID(IDC_MEME_AREA), w_Inst, nullptr
 	);
@@ -1341,7 +1343,6 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 	switch (Msg)
 	{
-
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
@@ -1364,6 +1365,21 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 			Gdiplus::Graphics gfx(hdc);
 			Gdiplus::Image img(woss.str().c_str());
 			gfx.DrawImage(&img, wrct);
+
+			RECT mfRect = wRect;
+			mfRect.top += wRect.bottom - wRect.top - 15;
+			mfRect.left += wRect.right - wRect.left - 123;
+			SetBkMode(hdc, TRANSPARENT);
+			SetTextColor(hdc, RGB(0xFF, 0xFF, 0xFF));
+
+			static const int points_per_inch = 72;
+			int pixels_per_inch = GetDeviceCaps(hdc, LOGPIXELSY);
+			int pixels_height = -(8 * pixels_per_inch / points_per_inch);
+
+			HFONT wtmFont = CreateFontW(pixels_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, L"Arial");
+			SelectObject(hdc, wtmFont);
+			DrawTextW(hdc, L"Craeted in Meme-Forger", wcslen(L"Craeted in Meme-Forger"), &mfRect, 0);
+			DeleteObject(wtmFont);
 
 			if (Runtime_MemeTexts.size() != 0)
 			{
@@ -1644,8 +1660,8 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 
 bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect)
 {
-	bool coord_x_valid = (x >= memeAreaRect.left && x <= memeAreaRect.right);
-	bool coord_y_valid = (y >= memeAreaRect.top && y <= memeAreaRect.bottom);
+	bool coord_x_valid = (x >= 0 && x <= memeAreaRect.right - memeAreaRect.left);
+	bool coord_y_valid = (y >= 0 && y <= memeAreaRect.bottom - memeAreaRect.top);
 	return (coord_x_valid && coord_y_valid);
 }
 
