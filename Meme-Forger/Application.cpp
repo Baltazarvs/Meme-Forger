@@ -106,11 +106,11 @@ Application::WClass::WClass()
 	wcex.lpfnWndProc = &Application::WndProcSetup;
 	wcex.hInstance = Application::WClass::GetInstance();
 	wcex.hCursor = LoadCursorW(Application::WClass::GetInstance(), IDC_ARROW);
-	wcex.hIcon = LoadIconW(Application::WClass::GetInstance(), IDI_APPLICATION);
+	wcex.hIcon = LoadIconW(Application::WClass::GetInstance(), MAKEINTRESOURCEW(IDI_ICONMAIN));
 	wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
 	wcex.lpszClassName = Application::WClass::GetWClassName();
 	wcex.lpszMenuName = MAKEINTRESOURCEW(IDR_MENUBAR);
-	wcex.hIconSm = LoadIconW(this->GetInstance(), IDI_APPLICATION);
+	wcex.hIconSm = LoadIconW(Application::WClass::GetInstance(), MAKEINTRESOURCEW(IDI_ICONMAIN));
 
 	if (!RegisterClassExW(&wcex))
 		MessageBoxW(0, L"Cannot Register Window Class!", L"Error!", MB_OK | MB_ICONEXCLAMATION);
@@ -185,6 +185,17 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 	{
 		case WM_CREATE:
 		{
+			HICON currIcon = reinterpret_cast<HICON>(
+				LoadImageW(
+					GetModuleHandle(nullptr),
+					MAKEINTRESOURCE(IDI_ICONMAIN),
+					IMAGE_ICON,
+					24, 24, LR_DEFAULTCOLOR
+				)
+			);
+
+			SendMessageW(w_Handle, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(currIcon));
+
 			InitUI(w_Handle, Application::WClass::GetInstance());
 			::Runtime_hMenu = GetMenu(w_Handle);
 
@@ -250,9 +261,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 						0
 					);
 
-					if (path.length() > 1)
-						Runtime_MemeOpened = true;
-					else
+					if (path.length() < 1)
 						Runtime_MemeOpened = false;
 
 					wcscpy(Runtime_CurrentMemePath, path.c_str());
@@ -268,6 +277,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 					file.open(path, std::ios::binary);
 					if (file.is_open())
 					{
+						Runtime_MemeOpened = true;
 						file.seekg(0, std::ios::end);
 						std::size_t size = file.tellg();
 						file.seekg(std::ios::beg);
@@ -510,6 +520,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 
+			InvalidateRect(w_MemeArea, &memeRect, TRUE);
 			return 0;
 		}
 		case WM_MOUSEMOVE:
@@ -850,6 +861,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		std::wstring line;
 		while (std::getline(file, line))
 			ComboBox_AddString(w_ComboFont, line.c_str());
+		ComboBox_SetCurSel(w_ComboFont, 0u);
 		file.close();
 	}
 
@@ -1351,6 +1363,15 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 			RECT wRect;
 			GetClientRect(w_Handle, &wRect);
 
+			if (!::Runtime_MemeOpened)
+			{
+				RECT nfoRect = wRect;
+				nfoRect.top += (nfoRect.bottom - nfoRect.top) / 2;
+				nfoRect.left += (nfoRect.right - nfoRect.left) / 2 - 45;
+				SetTextColor(hdc, RGB(0xFF, 0xFF, 0xFF));
+				DrawTextW(hdc, L"No template loaded.", wcslen(L"No template loaded."), &nfoRect, 0);
+			}
+
 			Gdiplus::Rect wrct(0, 0, wRect.right - wRect.left, wRect.bottom - wRect.top);
 
 			std::wostringstream woss;
@@ -1365,7 +1386,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 			Gdiplus::Graphics gfx(hdc);
 			Gdiplus::Image img(woss.str().c_str());
 			gfx.DrawImage(&img, wrct);
-
+			
 			RECT mfRect = wRect;
 			mfRect.top += wRect.bottom - wRect.top - 15;
 			mfRect.left += wRect.right - wRect.left - 123;	
@@ -1380,7 +1401,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 			SelectObject(hdc, wtmFont);
 			DrawTextW(hdc, L"Craeted in Meme-Forger", wcslen(L"Craeted in Meme-Forger"), &mfRect, 0);
 			DeleteObject(wtmFont);
-
+			
 			if (Runtime_MemeTexts.size() != 0)
 			{
 				for (std::size_t i = 0ull; i < Runtime_MemeTexts.size(); ++i)

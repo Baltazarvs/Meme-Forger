@@ -56,6 +56,8 @@ IDI_ICON_SELECT_POS     ICON                    "source\\media\\icons\\select_po
 
 IDI_ICON_ADD            ICON                    "source\\media\\icons\\Icon_Add.ico"
 
+IDI_ICONMAIN            ICON                    "source\\media\\icons\\icon.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -107,14 +109,15 @@ BEGIN
     LTEXT           "Actions...",31103,85,11,32,8
 END
 
-IDD_ABOUT DIALOGEX 0, 0, 173, 77
+IDD_ABOUT DIALOGEX 0, 0, 205, 80
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,59,53,56,19
-    LTEXT           "",IDC_STATIC_ABOUT_BY,46,11,105,8
-    CTEXT           "",IDC_STATIC_ABOUT_DESC,11,24,152,25
+    DEFPUSHBUTTON   "OK",IDOK,77,56,56,19
+    LTEXT           "",IDC_STATIC_ABOUT_BY,55,11,142,8
+    CTEXT           "",IDC_STATIC_ABOUT_DESC,47,24,136,25
+    ICON            IDI_ICONMAIN,IDC_ABOUTICON,15,20,21,20,WS_GROUP
 END
 
 IDD_MODIFYTEXT DIALOGEX 0, 0, 261, 226
@@ -178,6 +181,8 @@ GUIDELINES DESIGNINFO
 BEGIN
     IDD_ABOUT, DIALOG
     BEGIN
+        RIGHTMARGIN, 173
+        BOTTOMMARGIN, 79
     END
 
     IDD_MODIFYTEXT, DIALOG
@@ -201,8 +206,8 @@ BEGIN
     IDS_STRING_TAB_TEXT     "Text"
     IDS_STRING_TAB_IMAGE    "Image"
     IDS_STRING_TAB_FILE     "File"
-    IDS_STRING_ABOUT_BY     "Created 2022 - Baltazarus"
-    IDS_STRING_ABOUT_DESC   "Meme-Forger is a simple meme creating app.\nIt provides editing environment for importing \nand texting memes."
+    IDS_STRING_ABOUT_BY     "(C) Copyright 2021 - 2022 Baltazarus"
+    IDS_STRING_ABOUT_DESC   "Meme-Forger is a simple meme creating app. It provides editing environment for importing and texting memes."
 END
 
 #endif    // English (United States) resources
