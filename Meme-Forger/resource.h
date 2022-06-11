@@ -7,6 +7,7 @@
 #define IDS_STRING_TAB_FILE             103
 #define IDS_STRING_ABOUT_BY             104
 #define IDS_STRING_ABOUT_DESC           105
+#define IDS_STRING_TREE_LIST_HELP       106
 #define IDI_ICON_SELECT_POS             114
 #define IDD_ABOUT                       115
 #define IDD_MODIFYTEXT                  117

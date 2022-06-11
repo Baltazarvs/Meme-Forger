@@ -1231,12 +1231,15 @@ LRESULT __stdcall Application::WndProc_TabControl(
 				{
 					case IDC_LIST_TEXT_TREE:
 					{
-						const char* explain_str = "# - text index\n"
-												  "Text - value of text\n"
-												  "Position - position of text on image\n"
-												  "Action - modify current text or delete it";
+						wchar_t explain_str[255];
+						LoadStringW(
+							Application::WClass::GetInstance(),
+							IDS_STRING_TREE_LIST_HELP,
+							explain_str,
+							255
+						);
 
-						MessageBoxA(GetParent(w_Handle), explain_str, "Text Tree", MB_OK | MB_ICONINFORMATION);
+						MessageBoxW(GetParent(w_Handle), explain_str, L"Text Tree", MB_OK | MB_ICONINFORMATION);
 						break;
 					}
 				}

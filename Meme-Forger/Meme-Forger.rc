@@ -208,6 +208,8 @@ BEGIN
     IDS_STRING_TAB_FILE     "File"
     IDS_STRING_ABOUT_BY     "(C) Copyright 2021 - 2022 Baltazarus"
     IDS_STRING_ABOUT_DESC   "Meme-Forger is a simple meme creating app. It provides editing environment for importing and texting memes."
+    IDS_STRING_TREE_LIST_HELP 
+                            "# - text index\nText - value of text\nPosition - position of text on image\n\nUse ""A"" to display actions window when selecting the meme text."
 END
 
 #endif    // English (United States) resources
