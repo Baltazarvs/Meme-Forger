@@ -26,8 +26,8 @@ bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPer
 // ============ Runtime Control Variables ===========
 static bool Runtime_MemeOpened = false;
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
-static int Runtime_MemeFormatWidth = 510;						// Format size for width
-static int Runtime_MemeFormatHeight = 510;						// Format size for height
+static int Runtime_MemeFormatWidth = 512;						// Format size for width
+static int Runtime_MemeFormatHeight = 512;						// Format size for height
 static std::size_t Runtime_CurrentImageSize = 0ull;				// Current image size in bytes.
 static char Runtime_CurrentImagePath[MAX_PATH] = { };			// Current loaded meme image's filename.
 static bool bRuntime_CursorIsOverMemeArea = false;				// Is cursor over meme area? If yes true :)
@@ -1089,6 +1089,8 @@ LRESULT __stdcall Application::WndProc_TabControl(
 			{
 				case IDC_BUTTON_ADD:
 				{
+					ZeroMemory(&Runtime_LogFont, sizeof(LOGFONTW));
+
 					std::wstring meme_text, str_pos_x, str_pos_y;
 					std::wstring color_r, color_g, color_b;
 
@@ -1388,6 +1390,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 			Gdiplus::Graphics gfx(hdc);
 			Gdiplus::Image img(woss.str().c_str());
+
 			gfx.DrawImage(&img, wrct);
 			
 			RECT mfRect = wRect;
@@ -1600,10 +1603,10 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 
 	HWND w_EditText = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_TEXT);
 	HWND w_StaticInspect = GetDlgItem(w_Dlg, IDC_STATIC_MODIFY_COLOR_INSPECT);
-
+	
 	HWND w_CheckTransparent = GetDlgItem(w_Dlg, IDC_CHECK_MODIFY_TRANSPARENT);
 	HWND w_ComboModFonts = GetDlgItem(w_Dlg, IDC_COMBO_MODIFY_FONT_FAMILY);
-
+	HWND w_EditFontSize = GetDlgItem(w_Dlg, IDC_EDIT_MODIFY_FONT_SIZE);
 
 	static COLORREF currRgb = ::Runtime_rgbCurrent;
 
@@ -1670,6 +1673,93 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 					RECT inspectRect;
 					GetClientRect(w_StaticInspect, &inspectRect);
 					InvalidateRect(w_StaticInspect, &inspectRect, TRUE);
+					break;
+				}
+				case IDOK:
+				{
+					int len = 0;
+					wchar_t* buffer = nullptr;
+
+					HWND w_ColHandles[] = { 
+						w_EditText, w_EditX, w_EditY,
+						w_EditR, w_EditG, w_EditB
+					};
+
+					BYTE R = 0x00;
+					BYTE G = 0x00;
+					BYTE B = 0x00;
+
+					for (int i = 0; i < sizeof(w_ColHandles) / sizeof(w_ColHandles[0]); ++i)
+					{
+						if (i == 0)
+						{
+							len = GetWindowTextLengthW(w_ColHandles[i]) + 1;
+							buffer = new wchar_t[len];
+							GetWindowTextW(w_ColHandles[i], buffer, len);
+							Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text = buffer;
+							delete[] buffer;
+						}
+						if (i >= 1 && i < 3)
+						{
+							len = GetWindowTextLengthW(w_ColHandles[i]) + 1;
+							buffer = new wchar_t[len];
+							GetWindowTextW(w_ColHandles[i], buffer, len);
+							int i_pos = std::stoi(buffer);
+							
+							if(i == 1)
+								Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_rect.X = i_pos;
+							else
+								Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_rect.Y = i_pos;
+
+							delete[] buffer;
+						}
+						if (i >= 3 && i < 6)
+						{
+							len = GetWindowTextLengthW(w_ColHandles[i]) + 1;
+							buffer = new wchar_t[len];
+							GetWindowTextW(w_ColHandles[i], buffer, len);
+
+							if (i == 3)
+								R = (BYTE)std::stoi(buffer);
+							else if (i == 4)
+								G = (BYTE)std::stoi(buffer);
+							else if (i == 5)
+							{
+								B = (BYTE)std::stoi(buffer);
+								Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color = RGB(R, G, B);
+							}
+							delete[] buffer;
+						}
+					}
+
+					Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].log_font = Runtime_LogFont;
+					
+					RECT memeRect;
+					GetClientRect(w_MemeArea, &memeRect);
+					InvalidateRect(w_MemeArea, &memeRect, TRUE);
+
+					EndDialog(w_Dlg, 0);
+					break;
+				}
+				case IDC_BUTTON_MODIFY_PICK_FONT:
+				{
+					CHOOSEFONTW cfn = { 0 };
+					cfn.lStructSize = sizeof(CHOOSEFONT);
+					cfn.hInstance = Application::WClass::GetInstance();
+					cfn.Flags = CF_NOSCRIPTSEL | CF_INITTOLOGFONTSTRUCT | CF_LIMITSIZE;
+					cfn.lpLogFont = &Runtime_LogFont;
+					cfn.hwndOwner = w_Dlg;
+					cfn.rgbColors = ::Runtime_rgbCurrent;
+					cfn.hDC = nullptr;
+					cfn.nSizeMin = 8;
+					cfn.nSizeMax = 50;
+					cfn.nFontType = REGULAR_FONTTYPE;
+
+					ChooseFontW(&cfn);
+
+					ComboBox_AddString(w_ComboModFonts, Runtime_LogFont.lfFaceName);
+					ComboBox_SetCurSel(w_ComboModFonts, ComboBox_GetCount(w_ComboModFonts) - 1);
+					SetWindowTextW(w_EditFontSize, std::to_wstring(cfn.iPointSize / 10).c_str());
 					break;
 				}
 				case IDCANCEL:
