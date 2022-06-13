@@ -3,7 +3,7 @@ Meme-Forger is new software for creating Memes.
 
 # Building
 Meme-Forger uses MSVC compiler. You have to use Visual Studio to build
-this software.
+this software. NOTE: Compiler must support C++ 11 or above.
 
 # How to use Meme-Forger
 Meme-Forger is simple software that *currently* has next features:
