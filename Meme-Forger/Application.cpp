@@ -23,6 +23,11 @@ void ToggleMenuBarVisibility(HWND);
 void ManageMultipleSyncKeys(MSG&);
 bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPerPixel = 24);
 
+bool NotifyTabControl(HWND w_Handle, LPARAM lParam);
+void ShowTextTab(bool bShow);
+void ShowImageTab(bool bShow);
+void ShowFileTab(bool bShow);
+
 // ============ Runtime Control Variables ===========
 static bool Runtime_MemeOpened = false;
 static wchar_t Runtime_CurrentMemePath[MAX_PATH];
@@ -82,6 +87,7 @@ static HWND w_EditFontSize = nullptr;
 static HWND w_AdvancedFontSelect = nullptr;
 
 static HWND w_ExportMeme = nullptr;
+
 // ==================================================
 
 struct MemeText
@@ -159,7 +165,7 @@ LRESULT __stdcall Application::WndProcSetup(HWND w_Handle, UINT Msg, WPARAM wPar
 {
 	if (Msg == WM_NCCREATE)
 	{
-		const CREATESTRUCTA* const w_Create = reinterpret_cast<CREATESTRUCTA*>(lParam);
+		const CREATESTRUCTW* const w_Create = reinterpret_cast<CREATESTRUCTW*>(lParam);
 		Application* const w_App = reinterpret_cast<Application*>(w_Create->lpCreateParams);
 		SetWindowLongPtrW(w_Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(w_App));
 		SetWindowLongPtrW(w_Handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&Application::Thunk));
@@ -301,7 +307,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				{
 					if (!Runtime_MemeOpened)
 					{
-						MessageBoxW(0, L"No image was imported.", L"Export", MB_ICONINFORMATION | MB_OK);
+						MessageBoxW(w_Handle, L"No image was imported.", L"Export", MB_ICONINFORMATION | MB_OK);
 						break;
 					}
 
@@ -327,44 +333,51 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		}
 		case WM_SIZE:
 		{
-			SendMessageA(w_StatusBar, WM_SIZE, 0u, 0u);
+			RECT wRect;			// Main window rect
+			RECT memeRect;		// Meme area rect
+			RECT sbRect;		// Status bar rect
+			RECT tabRect;		// Tab control rect
+			RECT lvRect;		// Tree list rect
+			RECT edRect;		// Meme text edit rect
+			RECT gposRect;		// Position group box rect
+			RECT gpstyleRect;	// Style group box rect
+			RECT blueRect;		// Blue color edit rect
+			RECT btselRect;		// Color pick button rect
+			RECT inspectRect;	// Inspect color rect
+			RECT brRect;		// Browse button rect
+			RECT fnRect;		// Group box font rect
+			RECT cbfRect;		// Font combo box rect
 			
-			RECT wRect;
 			GetClientRect(w_Handle, &wRect);
 
-			RECT memeRect;
 			MoveWindow(w_MemeArea, 0, 0, ::Runtime_MemeFormatWidth, ::Runtime_MemeFormatHeight, TRUE);
 			GetClientRect(w_MemeArea, &memeRect);
 
-			RECT sbRect;
 			GetWindowRect(w_StatusBar, &sbRect);
 			int status_bar_height = sbRect.bottom - sbRect.top;
-			MoveWindow(w_TabControl, memeRect.right + 10, 0, wRect.right - memeRect.right - 3, wRect.bottom - status_bar_height, TRUE);
+			MoveWindow(w_TabControl, memeRect.right + 10, 0, wRect.right - memeRect.right - 10, wRect.bottom - status_bar_height, TRUE);
 			
 			int sb_first_part = wRect.right / 5;
 			int sb_second_part = sb_first_part + (wRect.right / 10);
 			int sb_third_part = sb_second_part + (wRect.right / 10);
 
 			int sbparts[4] = { sb_first_part, sb_second_part, sb_third_part, -1 };
+			SendMessageA(w_StatusBar, WM_SIZE, 0u, 0u);
 			SendMessage(w_StatusBar, SB_SETPARTS, (WPARAM)4u, reinterpret_cast<LPARAM>(sbparts));
 
-			RECT tabRect;
 			GetClientRect(w_TabControl, &tabRect);
 			MoveWindow(w_StringsTreeList, 5, tabRect.bottom / 2 + 50, tabRect.right - 10, tabRect.bottom - (tabRect.bottom / 2) - 105, TRUE);
 			
-			RECT lvRect;
 			GetClientRect(w_StringsTreeList, &lvRect);
 			MoveWindow(w_ButtonActions, 5, tabRect.bottom / 2 + 350 + 2, lvRect.right - lvRect.left, 30, TRUE);
 
 			MoveWindow(w_EditTextValue, 5, 35, tabRect.right - 110, 25, TRUE);
 			
-			RECT edRect;
 			GetClientRect(w_EditTextValue, &edRect);
 			MoveWindow(w_ButtonAdd, edRect.right + 10, 34, tabRect.right - edRect.right - 20, 27, TRUE);
 			
 			MoveWindow(w_GroupBoxPosition, 5, edRect.bottom + 50, tabRect.right / 2, 130, TRUE);
 			
-			RECT gposRect;
 			GetClientRect(w_GroupBoxPosition, &gposRect);
 			MoveWindow(w_StaticPosX, gposRect.right / 4, gposRect.bottom / 2 + 5 - 20, 20, 20, TRUE);
 			MoveWindow(w_StaticPosY, gposRect.right / 2, gposRect.bottom / 2 + 5 - 20, 20, 20, TRUE);
@@ -389,7 +402,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 
-			RECT gpstyleRect;
 			GetClientRect(w_GroupBoxStyle, &gpstyleRect);
 
 			MoveWindow(
@@ -416,7 +428,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 
-			RECT blueRect;
 			GetClientRect(w_EditB, &blueRect);
 
 			MoveWindow(
@@ -428,7 +439,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 			
-			RECT btselRect;
 			GetClientRect(w_ButtonSelectColor, &btselRect);
 
 			MoveWindow(
@@ -440,7 +450,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 
-			RECT inspectRect;
 			GetClientRect(w_StaticColorInspector, &inspectRect);
 
 			MoveWindow(
@@ -465,21 +474,17 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				100, 32, TRUE
 			);
 
-			RECT styRect;
-			GetClientRect(w_GroupBoxStyle, &styRect);
-
 			int lvheight = lvRect.bottom - lvRect.top;
 
 			MoveWindow(
 				w_GroupBoxFont,
 				gposRect.right - gposRect.left + 15,
-				edRect.bottom + 50 + (styRect.bottom - styRect.top) + 15,
+				edRect.bottom + 50 + (gpstyleRect.bottom - gpstyleRect.top) + 15,
 				tabRect.right - gposRect.right - 25,
 				tabRect.bottom - lvheight - 300,
 				TRUE
 			);
 
-			RECT brRect;
 			GetClientRect(w_ButtonBrowse, &brRect);
 
 			MoveWindow(
@@ -490,7 +495,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				30, TRUE
 			);
 
-			RECT fnRect;
 			GetClientRect(w_GroupBoxFont, &fnRect);
 			MoveWindow(
 				w_ComboFont, 
@@ -500,7 +504,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				TRUE
 			);
 
-			RECT cbfRect;
 			GetClientRect(w_ComboFont, &cbfRect);
 
 			MoveWindow(
@@ -595,6 +598,11 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			SetBkColor(hdc, RGB(0xFF, 0xFF, 0xFF));
 			SetTextColor(hdc, RGB(0x00, 0x00, 0x00));
 			return reinterpret_cast<INT_PTR>(defhbr);
+		}
+		case WM_NOTIFY:
+		{
+			NotifyTabControl(w_Handle, lParam);
+			break;
 		}
 		case WM_CLOSE:
 			DestroyWindow(w_Handle);
@@ -912,8 +920,8 @@ void Application::ClearMemeContext(COLORREF rgb)
 void Application::SetupStatusBar(HWND w_Handle, HINSTANCE w_Inst)
 {
 	int* sbparts = new int[3];
-	sbparts[0] = 300;
-	sbparts[1] = 400;
+	sbparts[0] = 450;
+	sbparts[1] = 200;
 	sbparts[2] = -1;
 
 	w_StatusBar = CreateWindowW(
@@ -1081,6 +1089,7 @@ LRESULT __stdcall Application::WndProc_TabControl(
 	HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData
 )
 {
+	
 	switch(Msg)
 	{
 		case WM_COMMAND:
@@ -1203,35 +1212,35 @@ LRESULT __stdcall Application::WndProc_TabControl(
 		}
 		case WM_NOTIFY:
 		{
-			if (reinterpret_cast<LPNMHDR>(lParam)->code == LVN_KEYDOWN)
+			switch (reinterpret_cast<LPNMHDR>(lParam)->code)
 			{
-				NMLVKEYDOWN* nmlvk;
-				nmlvk = reinterpret_cast<NMLVKEYDOWN*>(lParam);
-				if (nmlvk->wVKey == 0x41)
+				case LVN_KEYDOWN:
 				{
-					if (ListView_GetSelectedCount(w_StringsTreeList) < 1)
+					NMLVKEYDOWN* nmlvk;
+					nmlvk = reinterpret_cast<NMLVKEYDOWN*>(lParam);
+					if (nmlvk->wVKey == 0x41)
 					{
-						MessageBoxW(w_Handle, L"No text was selected.", L"No Selection", MB_ICONINFORMATION | MB_OK);
-						return 1;
+						if (ListView_GetSelectedCount(w_StringsTreeList) < 1)
+						{
+							MessageBoxW(w_Handle, L"No text was selected.", L"No Selection", MB_ICONINFORMATION | MB_OK);
+							return 1;
+						}
+
+						Runtime_MemeTextSelected = true;
+						::Runtime_MemeTextSelectedIndex = static_cast<std::size_t>(ListView_GetNextItem(w_StringsTreeList, -1, LVNI_SELECTED));
+
+						DialogBoxW(
+							Application::WClass::GetInstance(),
+							MAKEINTRESOURCEW(IDD_ACTION),
+							w_Handle,
+							reinterpret_cast<DLGPROC>(&Application::DlgProc_Actions)
+						);
 					}
-
-					Runtime_MemeTextSelected = true;
-					::Runtime_MemeTextSelectedIndex = static_cast<std::size_t>(ListView_GetNextItem(w_StringsTreeList, -1, LVNI_SELECTED));
-
-					DialogBoxW(
-						Application::WClass::GetInstance(),
-						MAKEINTRESOURCEW(IDD_ACTION),
-						w_Handle,
-						reinterpret_cast<DLGPROC>(&Application::DlgProc_Actions)
-					);
+					break;
 				}
-			}
-
-			if (reinterpret_cast<LPNMHDR>(lParam)->code == LVN_COLUMNCLICK)
-			{
-				switch (((LPNMHDR)lParam)->idFrom)
+				case LVN_COLUMNCLICK:
 				{
-					case IDC_LIST_TEXT_TREE:
+					if(reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDC_LIST_TEXT_TREE)
 					{
 						wchar_t explain_str[255];
 						LoadStringW(
@@ -1242,8 +1251,8 @@ LRESULT __stdcall Application::WndProc_TabControl(
 						);
 
 						MessageBoxW(GetParent(w_Handle), explain_str, L"Text Tree", MB_OK | MB_ICONINFORMATION);
-						break;
 					}
+					break;
 				}
 			}
 			break;
@@ -1880,6 +1889,65 @@ bool HDCToFile(const wchar_t* FilePath, HDC Context, RECT Area, uint16_t BitsPer
 
 	DeleteObject(Section);
 	return false;
+}
+
+bool NotifyTabControl(HWND w_Handle, LPARAM lParam)
+{
+	int previous_index = 0;
+
+	switch (reinterpret_cast<LPNMHDR>(lParam)->code)
+	{
+		case TCN_SELCHANGING:
+		{
+			previous_index = TabCtrl_GetCurSel(w_TabControl);
+			break;
+		}
+		case TCN_SELCHANGE:
+		{
+			int tab_index = TabCtrl_GetCurSel(w_TabControl);
+			if (tab_index == 0)
+			{
+				ShowTextTab(true);
+				ShowImageTab(false);
+				ShowFileTab(false);
+			}
+			else if (tab_index == 1)
+			{
+				ShowTextTab(false);
+				ShowImageTab(true);
+				ShowFileTab(false);
+			}
+			else if (tab_index == 2)
+			{
+				ShowTextTab(false);
+				ShowImageTab(false);
+				ShowFileTab(true);
+			}
+			break;
+		}
+	}
+	return true;
+}
+
+void ShowTextTab(bool bShow)
+{
+	HWND w_Controls[] = {
+		w_StringsTreeList, w_EditTextValue, w_ButtonAdd, w_GroupBoxPosition, w_StaticPosX, w_StaticPosY,
+		w_EditPosX, w_EditPosY, w_ButtonToggleClickPositioning,
+		w_GroupBoxStyle, w_EditR, w_EditG, w_EditB, w_ButtonSelectColor, w_StaticColorInspector,
+		w_ButtonActions, w_GroupBoxFont, w_ComboFont, w_EditFontSize, w_AdvancedFontSelect
+	};
+
+	for (int i = 0; i < sizeof(w_Controls) / sizeof(w_Controls[0]); ++i)
+		ShowWindow(w_Controls[i], bShow ? SW_SHOW : SW_HIDE);
+}
+
+void ShowImageTab(bool bShow)
+{
+}
+
+void ShowFileTab(bool bShow)
+{
 }
 
 void Application::RunMessageLoop()
