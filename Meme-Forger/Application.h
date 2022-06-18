@@ -34,12 +34,12 @@ public:
 
 	// ========================================== Meme-Forger ==================================================
 	static void InitUI(HWND w_Handle, HINSTANCE w_Inst);
-	static void InitCommand(HWND w_Handle, WPARAM wParam, LPARAM lParam);
 	static void SetupStatusBar(HWND w_Handle, HINSTANCE w_Inst);
 	
 	static LRESULT __stdcall GroupBoxPosProc(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	static LRESULT __stdcall WndProc_TabControl(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	static LRESULT __stdcall WndProc_GroupStyle(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	static LRESULT __stdcall WndProc_GroupBgColor(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	static LRESULT __stdcall WndProc_GroupFont(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	static LRESULT __stdcall WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	static LRESULT __stdcall WndProc_ColorReview(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);

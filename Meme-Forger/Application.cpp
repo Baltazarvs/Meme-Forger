@@ -9,13 +9,17 @@ Gdiplus::Graphics* Application::m_Gfx;
 #define MEME_PADDING					5
 #define PATH_SETTINGS_DEFAULT_FONTS		"settings\\default_fonts.txt"
 
+#define CRITERIA_COLOR_PICK_RGB			1
+#define CRITERIA_COLOR_PICK_RGB_BG		2
+#define CRITERIA_COLOR_PICK_RGB_MODIFY	3
+
 struct MemeText;
 
 std::wstring OpenFileWithDialog(const wchar_t* Filters, HWND w_Handle, int criteria);
 bool LV_InsertColumns(HWND w_lvHandle, std::vector<const wchar_t*> Columns);
 bool LV_InsertItems(HWND w_lvHandle, int iItem, std::vector<const wchar_t*> Items);
 bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect);
-COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst);
+COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst, int criteria);
 template <typename T> std::wstring ConvertToString(T val_to_str);
 template <typename T> T ConvertToInt(const wchar_t* val_to_int);
 template <typename T> std::wstring ConvertToHex(T val_to_hex);
@@ -39,20 +43,24 @@ static bool bRuntime_CursorIsOverMemeArea = false;				// Is cursor over meme are
 static bool bRuntime_EnableCoordinateSelection = false;			// User turned on coordinate selection mode.
 static std::size_t Runtime_CurrentTextsAdded = 0ull;			// Count how many texts have been added to meme.
 static COLORREF Runtime_customColors[16];						// Custom colors used for color dialog for meme text
+static COLORREF Runtime_customColorsBg[16];						// Custom colors used for background color dialog for meme text
 static COLORREF Runtime_rgbCurrent = RGB(0xFF, 0xFF, 0xFF);		// Current meme text color RGB value.
+static COLORREF Runtime_rgbBgCurrent = RGB(0xFF, 0xFF, 0xFF);	// Current meme text background color RGB value.
 static int index_item = 0;										// Index of current added item to Tree List.
 static bool Runtime_ColorModeHexEnabled = false;				// If hexadecimal color mode is enabled in SETTINGS.
 
-static bool bRuntime_ShowStatusBar = true;
-static bool bRuntime_ShowMenuBar = true;
+static bool bRuntime_ShowStatusBar = true;						// Program should show status bar
+static bool bRuntime_ShowMenuBar = true;						// Program should show menu bar
 
 static HMENU Runtime_hMenu = nullptr;
 
-std::vector<MemeText> Runtime_MemeTexts;
+std::vector<MemeText> Runtime_MemeTexts;						// Vector that contains every meme text and its components
 
-static bool Runtime_MemeTextSelected = false;
-static std::size_t Runtime_MemeTextSelectedIndex = 0;
-LOGFONTW Runtime_LogFont = { 0 };
+static bool Runtime_MemeTextSelected = false;					// Is meme text selected from list?
+static std::size_t Runtime_MemeTextSelectedIndex = 0;			// Index of selected meme text from list.
+LOGFONTW Runtime_LogFont = { 0 };								// Current font and its style.
+
+static bool bRuntime_TransparentBG = true;						// Should meme text's background be transparent?
 
 // ============ Control handle variables ============
 static HWND w_TabControl = nullptr;
@@ -88,6 +96,12 @@ static HWND w_AdvancedFontSelect = nullptr;
 
 static HWND w_ExportMeme = nullptr;
 
+static HWND w_GroupBoxBGColor = nullptr;
+static HWND w_EditBgR = nullptr;
+static HWND w_EditBgG = nullptr;
+static HWND w_EditBgB = nullptr;
+static HWND w_ButtonSelectBgColor = nullptr;
+static HWND w_StaticBgColorInspector = nullptr;
 // ==================================================
 
 struct MemeText
@@ -209,6 +223,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			SetWindowSubclass(w_GroupBoxPosition, &Application::GroupBoxPosProc, 0u, 0u);
 			SetWindowSubclass(w_TabControl, &Application::WndProc_TabControl, 0u, 0u);
 			SetWindowSubclass(w_GroupBoxStyle, &Application::WndProc_GroupStyle, 0u, 0u);
+			SetWindowSubclass(w_GroupBoxBGColor, &Application::WndProc_GroupBgColor, 0u, 0u);
 			SetWindowSubclass(w_MemeArea, &Application::WndProc_MemeArea, 0u, 0u);
 			SetWindowSubclass(w_GroupBoxFont, &Application::WndProc_GroupFont, 0u, 0u);
 			break;
@@ -342,11 +357,15 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			RECT gposRect;		// Position group box rect
 			RECT gpstyleRect;	// Style group box rect
 			RECT blueRect;		// Blue color edit rect
+			RECT bluebgRect;	// Blue color edit rect (BG)
 			RECT btselRect;		// Color pick button rect
+			RECT btselBgRect;	// Color pick button rect (BG)
 			RECT inspectRect;	// Inspect color rect
+			RECT inspectBgRect;	// Inspect color rect (BG)
 			RECT brRect;		// Browse button rect
 			RECT fnRect;		// Group box font rect
 			RECT cbfRect;		// Font combo box rect
+			RECT gbgRect;		// Group box background color
 			
 			GetClientRect(w_Handle, &wRect);
 
@@ -366,7 +385,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			SendMessage(w_StatusBar, SB_SETPARTS, (WPARAM)4u, reinterpret_cast<LPARAM>(sbparts));
 
 			GetClientRect(w_TabControl, &tabRect);
-			MoveWindow(w_StringsTreeList, 5, tabRect.bottom / 2 + 50, tabRect.right - 10, tabRect.bottom - (tabRect.bottom / 2) - 105, TRUE);
+			MoveWindow(w_StringsTreeList, 10, tabRect.bottom / 2 + 50, tabRect.right - 20, tabRect.bottom - (tabRect.bottom / 2) - 105, TRUE);
 			
 			GetClientRect(w_StringsTreeList, &lvRect);
 			MoveWindow(w_ButtonActions, 5, tabRect.bottom / 2 + 350 + 2, lvRect.right - lvRect.left, 30, TRUE);
@@ -376,7 +395,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			GetClientRect(w_EditTextValue, &edRect);
 			MoveWindow(w_ButtonAdd, edRect.right + 10, 34, tabRect.right - edRect.right - 20, 27, TRUE);
 			
-			MoveWindow(w_GroupBoxPosition, 5, edRect.bottom + 50, tabRect.right / 2, 130, TRUE);
+			MoveWindow(w_GroupBoxPosition, 10, edRect.bottom + 50, tabRect.right / 2, 130, TRUE);
 			
 			GetClientRect(w_GroupBoxPosition, &gposRect);
 			MoveWindow(w_StaticPosX, gposRect.right / 4, gposRect.bottom / 2 + 5 - 20, 20, 20, TRUE);
@@ -404,29 +423,9 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 			GetClientRect(w_GroupBoxStyle, &gpstyleRect);
 
-			MoveWindow(
-				w_EditR, 
-				25, 
-				gpstyleRect.bottom / 3 - 10, 
-				50, 25, 
-				TRUE
-			);
-
-			MoveWindow(
-				w_EditG, 
-				25 + 51, 
-				gpstyleRect.bottom / 3 - 10, 
-				50, 25, 
-				TRUE
-			);
-
-			MoveWindow(
-				w_EditB, 
-				25 + 102, 
-				gpstyleRect.bottom / 3 - 10, 
-				50, 25, 
-				TRUE
-			);
+			MoveWindow(w_EditR, 25, gpstyleRect.bottom / 3 - 10, 50, 25, TRUE);
+			MoveWindow(w_EditG, 25 + 51, gpstyleRect.bottom / 3 - 10, 50, 25, TRUE);
+			MoveWindow(w_EditB, 25 + 102, gpstyleRect.bottom / 3 - 10, 50, 25, TRUE);
 
 			GetClientRect(w_EditB, &blueRect);
 
@@ -479,7 +478,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			MoveWindow(
 				w_GroupBoxFont,
 				gposRect.right - gposRect.left + 15,
-				edRect.bottom + 50 + (gpstyleRect.bottom - gpstyleRect.top) + 15,
+				edRect.bottom + 50 + (gpstyleRect.bottom - gpstyleRect.top) + 10,
 				tabRect.right - gposRect.right - 25,
 				tabRect.bottom - lvheight - 300,
 				TRUE
@@ -520,6 +519,53 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				14, 50,
 				fnRect.right - fnRect.left - 19,
 				30,
+				TRUE
+			);
+
+			MoveWindow(
+				w_GroupBoxBGColor,
+				10, edRect.bottom + 50 + (gposRect.bottom - gposRect.top) + 10,
+				gposRect.right - gposRect.left,
+				tabRect.bottom - lvheight - 300,
+				TRUE
+			);
+
+			GetClientRect(w_GroupBoxBGColor, &gbgRect);
+
+			MoveWindow(w_EditBgR, 25, gbgRect.bottom / 3 - 10, 50, 25, TRUE);
+			MoveWindow(w_EditBgG, 25 + 51, gbgRect.bottom / 3 - 10, 50, 25, TRUE);
+			MoveWindow(w_EditBgB, 25 + 102, gbgRect.bottom / 3 - 10, 50, 25, TRUE);
+
+			GetClientRect(w_EditBgB, &bluebgRect);
+
+			MoveWindow(
+				w_ButtonSelectBgColor,
+				24,
+				gbgRect.bottom / 3 + 26,
+				bluebgRect.right * 3 + 4,
+				35,
+				TRUE
+			);
+
+			GetClientRect(w_ButtonSelectBgColor, &btselBgRect);
+
+			MoveWindow(
+				w_StaticBgColorInspector,
+				(btselBgRect.right - btselBgRect.left) + 25,
+				gbgRect.bottom / 3 - 10,
+				(gbgRect.right - gbgRect.left) - (btselBgRect.right - btselBgRect.left) - 50,
+				bluebgRect.bottom,
+				TRUE
+			);
+
+			GetClientRect(w_StaticBgColorInspector, &inspectBgRect);
+
+			MoveWindow(
+				w_ButtonSelectBgColor,
+				24,
+				gbgRect.bottom / 3 + 26,
+				bluebgRect.right * 3 + 4 + ((inspectBgRect.right - inspectBgRect.left) + 4),
+				35,
 				TRUE
 			);
 
@@ -862,6 +908,48 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_GroupBoxFont, ID(IDC_BUTTON_SELECT_FONT), w_Inst, nullptr
 	);
 
+	w_GroupBoxBGColor = CreateWindowW(
+		WC_BUTTONW, L"Background Color",
+		defStyles | BS_GROUPBOX,
+		0, 0, 0, 0,
+		w_TabControl, nullptr, w_Inst, nullptr
+	);
+
+	w_EditBgR = CreateWindowW(
+		WC_EDITW, L"255",
+		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
+		0, 0, 0, 0,
+		w_GroupBoxBGColor, ID(IDC_EDIT_BG_R_COLOR), w_Inst, nullptr
+	);
+
+	w_EditBgG = CreateWindowW(
+		WC_EDITW, L"255",
+		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
+		0, 0, 0, 0,
+		w_GroupBoxBGColor, ID(IDC_EDIT_BG_G_COLOR), w_Inst, nullptr
+	);
+
+	w_EditBgB = CreateWindowW(
+		WC_EDITW, L"255",
+		defStyles | WS_BORDER | ES_NUMBER | ES_READONLY,
+		0, 0, 0, 0,
+		w_GroupBoxBGColor, ID(IDC_EDIT_BG_B_COLOR), w_Inst, nullptr
+	);
+
+	w_ButtonSelectBgColor = CreateWindowW(
+		WC_BUTTONW, L"Select Color",
+		defStyles | BS_PUSHBUTTON,
+		0, 0, 0, 0,
+		w_GroupBoxBGColor, ID(IDC_BUTTON_SELECT_BG_COLOR), w_Inst, nullptr
+	);
+
+	w_StaticBgColorInspector = CreateWindowW(
+		WC_STATICW, nullptr,
+		defStyles | WS_BORDER,
+		0, 0, 0, 0,
+		w_GroupBoxBGColor, ID(IDC_STATIC_BG_COLOR_INSPECT), w_Inst, nullptr
+	);
+
 	std::wifstream file;
 	file.open(PATH_SETTINGS_DEFAULT_FONTS);
 	if (file.is_open())
@@ -877,7 +965,8 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_MemeArea, w_TabControl, w_StatusBar, w_StringsTreeList, w_EditTextValue,
 		w_StaticPosX, w_StaticPosY, w_EditPosX, w_EditPosY, w_EditR, w_EditG, w_EditB,
 		w_StaticColorInspector, w_EditLoadedMeme, w_ButtonBrowse, w_GroupBoxFont,
-		w_EditFontSize, w_AdvancedFontSelect, w_ExportMeme, w_ComboFont, w_EditFontSize
+		w_EditFontSize, w_AdvancedFontSelect, w_ExportMeme, w_ComboFont, w_EditFontSize,
+		w_EditBgR, w_EditBgG, w_EditBgB
 	};
 
 	HFONT hFont = nullptr;
@@ -891,7 +980,7 @@ void Application::InitUI(HWND w_Handle, HINSTANCE w_Inst)
 			SendMessageW(controlsList[i], WM_SETFONT, reinterpret_cast<WPARAM>(hFont), true);
 			continue;
 		}
-		if(i >= 4 && i < 18)
+		if((i >= 4 && i < 18) || (i > 20 && i < 24 ))
 		{
 			DeleteObject(hFont);
 			hFont = CreateFontW(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
@@ -935,17 +1024,6 @@ void Application::SetupStatusBar(HWND w_Handle, HINSTANCE w_Inst)
 	SendMessage(w_StatusBar, SB_SETTEXTW, (WPARAM)0u, reinterpret_cast<LPARAM>(L"No image opened."));
 	SendMessage(w_StatusBar, SB_SETTEXTW, (WPARAM)1u, reinterpret_cast<LPARAM>(L"0 Bytes"));
 	delete[] sbparts;
-	return;
-}
-
-void Application::InitCommand(HWND w_Handle, WPARAM wParam, LPARAM lParam)
-{
-	switch(LOWORD(wParam))
-	{
-		case ID_FILE_EXIT:
-			DestroyWindow(w_Handle);
-			break;
-	}
 	return;
 }
 
@@ -1198,7 +1276,7 @@ LRESULT __stdcall Application::WndProc_TabControl(
 					memeTextObj.text_color = Runtime_rgbCurrent;
 					memeTextObj.log_font = Runtime_LogFont;
 					memeTextObj.text_rect = current_rect;
-					memeTextObj.bTransparent = true;
+					memeTextObj.bTransparent = ::bRuntime_TransparentBG;
 					Runtime_MemeTexts.push_back(memeTextObj);
 
 					RECT memeRect;
@@ -1279,7 +1357,8 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 				{
 					COLORREF text_color = ::GetColorFromDialog(
 						GetParent(w_Handle), 
-						GetModuleHandle(nullptr)
+						GetModuleHandle(nullptr),
+						CRITERIA_COLOR_PICK_RGB
 					);
 
 					BYTE red = GetRValue(text_color);
@@ -1313,6 +1392,64 @@ LRESULT __stdcall Application::WndProc_GroupStyle(
 				SetTextColor(hdc, ::Runtime_rgbCurrent);
 				SetBkColor(hdc, ::Runtime_rgbCurrent);
 				return (LRESULT)CreateSolidBrush(::Runtime_rgbCurrent);
+			}
+			break;
+		}
+		default:
+			return DefSubclassProc(w_Handle, Msg, wParam, lParam);
+	}
+	return 0;
+}
+
+LRESULT __stdcall Application::WndProc_GroupBgColor(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+	static HBRUSH hbrcurrent = CreateSolidBrush(::Runtime_rgbBgCurrent);
+
+	switch(Msg)
+	{
+		case WM_COMMAND:
+		{
+			switch(LOWORD(wParam))
+			{
+				case IDC_BUTTON_SELECT_BG_COLOR:
+				{
+					COLORREF text_color = ::GetColorFromDialog(
+						GetParent(w_Handle), 
+						GetModuleHandle(nullptr),
+						CRITERIA_COLOR_PICK_RGB_BG
+					);
+
+					BYTE red = GetRValue(text_color);
+					BYTE green = GetGValue(text_color);
+					BYTE blue = GetBValue(text_color);
+
+					std::wostringstream woss;
+					woss << red;
+					SetWindowTextW(w_EditBgR, woss.str().c_str()); woss.str(L"");
+					woss << green;
+					SetWindowTextW(w_EditBgG, woss.str().c_str()); woss.str(L"");
+					woss << blue;
+					SetWindowTextW(w_EditBgB, woss.str().c_str()); woss.str(L"");
+
+					RECT inspectRect;
+					GetClientRect(w_StaticBgColorInspector, &inspectRect);
+					InvalidateRect(w_StaticBgColorInspector, &inspectRect, TRUE);
+					break;
+				}
+			}
+			break;
+		}
+		case WM_CTLCOLORBTN:
+			return (LRESULT)CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF));
+		case WM_CTLCOLORSTATIC:
+		{
+			DWORD control_id = GetDlgCtrlID(reinterpret_cast<HWND>(lParam));
+			if(control_id == IDC_STATIC_BG_COLOR_INSPECT)
+			{
+				HDC hdc = GetDC(reinterpret_cast<HWND>(lParam));
+				SetTextColor(hdc, ::Runtime_rgbBgCurrent);
+				SetBkColor(hdc, ::Runtime_rgbBgCurrent);
+				return (LRESULT)CreateSolidBrush(::Runtime_rgbBgCurrent);
 			}
 			break;
 		}
@@ -1546,7 +1683,8 @@ LRESULT __stdcall Application::DlgProc_Actions(HWND w_Dlg, UINT Msg, WPARAM wPar
 						str_temp = std::to_wstring(i + 1).c_str();
 						ListView_SetItemText(w_StringsTreeList, i, 0, (wchar_t*)str_temp.c_str());
 					}
-				EndDialog(w_Dlg, 0);
+					EndDialog(w_Dlg, 0);
+
 					break;
 				}
 				case IDC_BUTTON_MODIFY:
@@ -1643,8 +1781,6 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 			SetWindowTextW(w_EditG, std::to_wstring(GetGValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
 			SetWindowTextW(w_EditB, std::to_wstring(GetBValue(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].text_color)).c_str());
 			
-			Button_SetCheck(w_CheckTransparent, (int)::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].bTransparent);
-			
 			std::wifstream file;
 			file.open(PATH_SETTINGS_DEFAULT_FONTS);
 			if (file.is_open())
@@ -1654,6 +1790,10 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 					ComboBox_AddString(w_ComboModFonts, line.c_str());
 				file.close();
 			}
+
+			bool bTransparentBg = static_cast<bool>(::Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].bTransparent);
+			Button_SetCheck(w_CheckTransparent, bTransparentBg);
+
 			break;
 		}
 		case WM_COMMAND:
@@ -1664,7 +1804,8 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 				{
 					COLORREF text_color = ::GetColorFromDialog(
 						w_Dlg,
-						GetModuleHandle(nullptr)
+						GetModuleHandle(nullptr),
+						CRITERIA_COLOR_PICK_RGB_MODIFY
 					);
 
 					BYTE red = GetRValue(text_color);
@@ -1742,6 +1883,7 @@ LRESULT __stdcall Application::DlgProc_Modify(HWND w_Dlg, UINT Msg, WPARAM wPara
 					}
 
 					Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].log_font = Runtime_LogFont;
+					Runtime_MemeTexts[::Runtime_MemeTextSelectedIndex].bTransparent = (bool)Button_GetCheck(w_CheckTransparent);
 					
 					RECT memeRect;
 					GetClientRect(w_MemeArea, &memeRect);
@@ -1791,7 +1933,7 @@ bool IsXYOverMemeArea(int& x, int& y, RECT& memeAreaRect)
 	return (coord_x_valid && coord_y_valid);
 }
 
-COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst)
+COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst, int criteria)
 {
 	CHOOSECOLOR lcc;
 
@@ -1800,15 +1942,28 @@ COLORREF GetColorFromDialog(HWND w_Handle, HINSTANCE w_Inst)
 	lcc.Flags = CC_FULLOPEN | CC_RGBINIT;
 	lcc.hwndOwner = w_Handle;
 	lcc.hInstance = nullptr;
-	lcc.rgbResult = ::Runtime_rgbCurrent;
-	lcc.lpCustColors = ::Runtime_customColors;
+
+	if (criteria == CRITERIA_COLOR_PICK_RGB_BG)
+	{
+		lcc.rgbResult = ::Runtime_rgbBgCurrent;
+		lcc.lpCustColors = ::Runtime_customColorsBg;
+	}
+	else
+	{
+		lcc.rgbResult = ::Runtime_rgbCurrent;
+		lcc.lpCustColors = ::Runtime_customColors;
+	}
 
 	if(ChooseColor(&lcc))
 	{
-		::Runtime_rgbCurrent = lcc.rgbResult;
+		if(criteria == CRITERIA_COLOR_PICK_RGB_BG)
+			::Runtime_rgbBgCurrent = lcc.rgbResult;
+		else
+			::Runtime_rgbCurrent = lcc.rgbResult;
+
 		return lcc.rgbResult;
 	}
-	return ::Runtime_rgbCurrent;
+	return (criteria == CRITERIA_COLOR_PICK_RGB_BG) ? ::Runtime_rgbBgCurrent : ::Runtime_rgbCurrent;
 }
 
 void ToggleMenuBarVisibility(HWND w_Handle)
@@ -1935,7 +2090,8 @@ void ShowTextTab(bool bShow)
 		w_StringsTreeList, w_EditTextValue, w_ButtonAdd, w_GroupBoxPosition, w_StaticPosX, w_StaticPosY,
 		w_EditPosX, w_EditPosY, w_ButtonToggleClickPositioning,
 		w_GroupBoxStyle, w_EditR, w_EditG, w_EditB, w_ButtonSelectColor, w_StaticColorInspector,
-		w_ButtonActions, w_GroupBoxFont, w_ComboFont, w_EditFontSize, w_AdvancedFontSelect
+		w_ButtonActions, w_GroupBoxFont, w_ComboFont, w_EditFontSize, w_AdvancedFontSelect,
+		w_GroupBoxBGColor
 	};
 
 	for (int i = 0; i < sizeof(w_Controls) / sizeof(w_Controls[0]); ++i)
