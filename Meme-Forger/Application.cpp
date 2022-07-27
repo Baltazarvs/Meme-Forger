@@ -1551,7 +1551,7 @@ LRESULT __stdcall Application::WndProc_MemeArea(HWND w_Handle, UINT Msg, WPARAM 
 
 			HFONT wtmFont = CreateFontW(pixels_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, L"Arial");
 			SelectObject(hdc, wtmFont);
-			DrawTextW(hdc, L"Craeted in Meme-Forger", wcslen(L"Craeted in Meme-Forger"), &mfRect, 0);
+			DrawTextW(hdc, L"Created in Meme-Forger", wcslen(L"Craeted in Meme-Forger"), &mfRect, 0);
 			DeleteObject(wtmFont);
 			
 			if (Runtime_MemeTexts.size() != 0)
