@@ -1,5 +1,5 @@
 # Meme-Forger
-Meme-Forger is a new software for creating Memes. 
+Meme-Forger is a new software for creating Memes (which is joke)
 
 # Building
 Meme-Forger uses MSVC compiler. You have to use Visual Studio to build
@@ -20,5 +20,7 @@ Meme-Forger is simple software that *currently* has next features:
   - More meme format sizes beside only 512x512.
 
 # Contact
-  - For more informations, feel free to contact us.
+  - For more informations, feel free to contact me.
   - If you encounter any kind of bugs in this software, don't hesistate to contact us.
+
+Since this program is created for testing purposes, it's probably won't be updated idk.
